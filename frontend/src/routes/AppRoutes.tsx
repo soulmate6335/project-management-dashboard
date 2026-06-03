@@ -16,6 +16,7 @@ const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const ProjectsPage  = lazy(() => import('../pages/ProjectsPage'));
 const TasksPage     = lazy(() => import('../pages/TasksPage'));
 const NotFoundPage  = lazy(() => import('../pages/NotFoundPage'));
+const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
 
 
 function PageLoader() {
@@ -61,6 +62,7 @@ export default function AppRoutes() {
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.LOGIN}    element={<LoginPage />} />
             <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+            <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
           </Route>
         </Route>
 
