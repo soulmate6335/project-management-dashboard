@@ -77,12 +77,10 @@ export default function RegisterPage() {
   const passwordValue = watch('password');
 
   const onSubmit = async (values: RegisterFormValues) => {
-    const { confirmPassword: _, ...payload } = values; // strip UI-only field
-    const result = await dispatch(registerUser(payload));
-    if (registerUser.fulfilled.match(result)) {
-      navigate(ROUTES.DASHBOARD, { replace: true });
-    }
-  };
+  const { confirmPassword: _, ...payload } = values;
+  await dispatch(registerUser(payload));
+};
+    
 
   const busy = isLoading || isSubmitting;
 
@@ -133,7 +131,7 @@ export default function RegisterPage() {
             disabled={busy}
             error={Boolean(errors.name)}
             helperText={errors.name?.message}
-            inputProps={{ 'aria-label': 'Full name' }}
+            slotProps={{ input: { 'aria-label': 'Full name' } }}
             {...register('name', {
               required: 'Full name is required',
               minLength: {
@@ -160,7 +158,7 @@ export default function RegisterPage() {
             disabled={busy}
             error={Boolean(errors.email)}
             helperText={errors.email?.message}
-            inputProps={{ 'aria-label': 'Email address' }}
+            slotProps={{ input: { 'aria-label': 'Email address' } }}
             {...register('email', {
               required: 'Email is required',
               pattern: {
@@ -182,21 +180,23 @@ export default function RegisterPage() {
               errors.password?.message ??
               'At least 8 characters with a number and a letter'
             }
-            inputProps={{ 'aria-label': 'Password' }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowPassword((v) => !v)}
-                    edge="end"
-                    size="small"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                'aria-label': 'Password',
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
             }}
             {...register('password', {
               required: 'Password is required',
@@ -222,25 +222,27 @@ export default function RegisterPage() {
             disabled={busy}
             error={Boolean(errors.confirmPassword)}
             helperText={errors.confirmPassword?.message}
-            inputProps={{ 'aria-label': 'Confirm password' }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={
-                      showConfirmPassword
-                        ? 'Hide confirm password'
-                        : 'Show confirm password'
-                    }
-                    onClick={() => setShowConfirmPassword((v) => !v)}
-                    edge="end"
-                    size="small"
-                    tabIndex={-1}
-                  >
-                    {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                'aria-label': 'Confirm password',
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={
+                        showConfirmPassword
+                          ? 'Hide confirm password'
+                          : 'Show confirm password'
+                      }
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
             }}
             {...register('confirmPassword', {
               required: 'Please confirm your password',
@@ -286,8 +288,7 @@ export default function RegisterPage() {
           component={RouterLink}
           to={ROUTES.LOGIN}
           underline="hover"
-          fontWeight={600}
-          sx={{ color: 'primary.main' }}
+          sx={{ color: 'primary.main', fontWeight: 600 }}
         >
           Sign in
         </Link>
