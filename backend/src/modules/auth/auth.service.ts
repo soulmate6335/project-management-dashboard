@@ -43,9 +43,7 @@ export async function registerUser(data: RegisterInput) {
 }
 
 export async function loginUser(data: LoginInput) {
-  const user = await User.findOne({
-    email: data.email.toLowerCase(),
-  });
+  const user = await User.findOne({ email: data.email.toLowerCase() }).select('+password');
 
   if (!user) {
     throw ApiError.unauthorized('Invalid email or password');
