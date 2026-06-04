@@ -19,7 +19,7 @@ import { errorMiddleware } from './middleware/error.middleware';
 // ---------------------------------------------------------------------------
 // Route imports (add as you build each module)
 // ---------------------------------------------------------------------------
-// import authRoutes    from './modules/auth/auth.routes';
+ import authRoutes    from './modules/auth/auth.routes';
 // import userRoutes    from './modules/users/user.routes';
 // import projectRoutes from './modules/projects/project.routes';
 // import taskRoutes    from './modules/tasks/task.routes';
@@ -114,7 +114,7 @@ export function createApp(): Application {
   });
 
   // ── API routes ────────────────────────────────────────────────────────────
-  // app.use('/api/v1/auth',      authRoutes);
+   app.use('/api/v1/auth',      authRoutes);
   // app.use('/api/v1/users',     userRoutes);
   // app.use('/api/v1/projects',  projectRoutes);
   // app.use('/api/v1/tasks',     taskRoutes);
