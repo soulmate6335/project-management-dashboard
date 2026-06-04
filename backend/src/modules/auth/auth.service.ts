@@ -35,11 +35,15 @@ export async function registerUser(data: RegisterInput) {
     role: user.role,
   };
 
-  return {
-    user,
-    accessToken: generateAccessToken(payload),
-    refreshToken: generateRefreshToken(payload),
-  };
+ const userObject = user.toObject();
+
+const { password, ...safeUser } = userObject;
+
+return {
+  user: safeUser,
+  accessToken: generateAccessToken(payload),
+  refreshToken: generateRefreshToken(payload),
+};
 }
 
 export async function loginUser(data: LoginInput) {
@@ -64,9 +68,23 @@ export async function loginUser(data: LoginInput) {
     role: user.role,
   };
 
-  return {
-    user,
-    accessToken: generateAccessToken(payload),
-    refreshToken: generateRefreshToken(payload),
-  };
+ const userObject = user.toObject();
+
+const { password, ...safeUser } = userObject;
+
+return {
+  user: safeUser,
+  accessToken: generateAccessToken(payload),
+  refreshToken: generateRefreshToken(payload),
+};
+}
+
+export async function getCurrentUser(userId: string) {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw ApiError.notFound('User not found');
+  }
+
+  return user;
 }

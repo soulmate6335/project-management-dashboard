@@ -11,6 +11,7 @@ import {
 import {
   registerUser,
   loginUser,
+  getCurrentUser,
 } from './auth.service';
 
 export const register = asyncHandler(
@@ -37,6 +38,18 @@ export const login = asyncHandler(
       res,
       result,
       'Login successful'
+    );
+  }
+);
+
+export const getMe = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = await getCurrentUser(req.user!.id);
+
+    return sendSuccess(
+      res,
+      user,
+      'Current user retrieved successfully'
     );
   }
 );
