@@ -7,6 +7,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
+// Always resolve from project root, not compiled dist
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 
 // ---------------------------------------------------------------------------
