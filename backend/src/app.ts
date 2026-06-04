@@ -21,7 +21,7 @@ import { errorMiddleware } from './middleware/error.middleware';
 // ---------------------------------------------------------------------------
  import authRoutes    from './modules/auth/auth.routes';
  //import userRoutes    from './modules/users/user.routes';
-// import projectRoutes from './modules/projects/project.routes';
+ import projectRoutes from './modules/projects/project.routes';
 // import taskRoutes    from './modules/tasks/task.routes';
 // import analyticsRoutes from './modules/analytics/analytics.routes';
 
