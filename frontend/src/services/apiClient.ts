@@ -1,23 +1,11 @@
-// src/services/apiClient.ts
-//
-// Shared Axios instance used by all services.
-// Handles: base URL, auth token injection, token refresh on 401,
-// and response unwrapping so services receive data directly.
-
+// src/services/apiClient.ts [FRONTEND]
 import axios from 'axios';
-import type {
-  AxiosInstance,
-  AxiosResponse,
-  InternalAxiosRequestConfig,
-} from 'axios';
-import type { ApiSuccess } from '../types/index';
+import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!BASE_URL) {
-  throw new Error(
-    '[apiClient] VITE_API_URL is not defined. Add it to your .env file.'
-  );
+  throw new Error('[apiClient] VITE_API_URL is not defined.');
 }
 
 // ---------------------------------------------------------------------------
@@ -28,66 +16,58 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
+    Accept:         'application/json',
   },
 });
 
 // ---------------------------------------------------------------------------
-// Request interceptor — attach JWT
+// Request interceptor — attach JWT token to every request
 // ---------------------------------------------------------------------------
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('auth_token');
-
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    console.log('[apiClient] Token from storage:', token ? 'EXISTS' : 'MISSING');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('[apiClient] Authorization header set');
     }
-
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 // ---------------------------------------------------------------------------
-// Response interceptor — unwrap envelope + handle 401
+// Response interceptor — handle 401
 // ---------------------------------------------------------------------------
 apiClient.interceptors.response.use(
-  (response: AxiosResponse<ApiSuccess<unknown>>) => response,
+  (response: AxiosResponse) => response,
   async (error) => {
     const originalRequest = error.config;
 
     if (
       error.response?.status === 401 &&
-      !originalRequest?._retried &&
-      localStorage.getItem('auth_token')
+      !originalRequest._retried &&
+      localStorage.getItem('refresh_token')
     ) {
       originalRequest._retried = true;
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-
         const { data } = await axios.post(
           `${BASE_URL}/api/v1/auth/refresh`,
           { refreshToken }
         );
 
-        const newToken = data.data?.token;
-
+        const newToken = data.data?.accessToken ?? data.data?.token;
         if (newToken) {
           localStorage.setItem('auth_token', newToken);
-
-          originalRequest.headers.Authorization =
-            `Bearer ${newToken}`;
-
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
           return apiClient(originalRequest);
         }
       } catch {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
-
-        window.dispatchEvent(
-          new Event('auth:logout')
-        );
+        window.dispatchEvent(new Event('auth:logout'));
       }
     }
 
@@ -96,15 +76,10 @@ apiClient.interceptors.response.use(
 );
 
 // ---------------------------------------------------------------------------
-// Convenience extractor — unwraps { success, data } envelope
+// Unwrap helper
 // ---------------------------------------------------------------------------
-export function unwrap<T>(
-  response: AxiosResponse<ApiSuccess<T>>
-): T {
+export function unwrap<T>(response: AxiosResponse<{ data: T }>): T {
   return response.data.data;
 }
 
-// ---------------------------------------------------------------------------
-// Default export
-// ---------------------------------------------------------------------------
 export default apiClient;

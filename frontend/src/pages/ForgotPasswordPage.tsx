@@ -10,7 +10,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import api from '../services/apiClient';
+import { apiClient as api } from '../services/apiClient';
 import axios from 'axios';
 
 export default function ForgotPasswordPage() {

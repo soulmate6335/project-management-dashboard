@@ -1,4 +1,6 @@
 // src/hooks/useProjects.ts
+import { useAppSelector } from '../app/hooks';
+import { selectIsAuthenticated } from '../features/auth/store/authSlice';
 import {
   useQuery,
   useMutation,
@@ -28,11 +30,14 @@ export const projectKeys = {
 // useProjects — paginated project list
 // ---------------------------------------------------------------------------
 export function useProjects(params: ListProjectsParams = {}) {
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+
   return useQuery({
     queryKey:    projectKeys.list(params),
     queryFn:     () => projectService.list(params),
     placeholderData: keepPreviousData,  // keeps previous page visible while next loads
     staleTime:   1000 * 60 * 2,        // 2 min — project lists don't change that fast
+    enabled: isAuthenticated,
   });
 }
 
@@ -40,10 +45,12 @@ export function useProjects(params: ListProjectsParams = {}) {
 // useProject — single project by ID
 // ---------------------------------------------------------------------------
 export function useProject(id: string) {
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+
   return useQuery({
     queryKey: projectKeys.detail(id),
     queryFn:  () => projectService.getById(id),
-    enabled:  Boolean(id),
+    enabled:  Boolean(id) && isAuthenticated,
     staleTime: 1000 * 60 * 5,
   });
 }

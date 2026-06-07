@@ -9,17 +9,21 @@ import DashboardLayout             from '../layouts/DashboardLayout';
 import ProtectedRoute              from './ProtectedRoute';
 
 
+
 const LoginPage     = lazy(() => import('../pages/LoginPage'));
 const RegisterPage  = lazy(() => import('../pages/RegisterPage'));
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const ProjectsPage  = lazy(() => import('../pages/ProjectsPage'));
 const TasksPage     = lazy(() => import('../pages/TasksPage'));
 const NotFoundPage  = lazy(() => import('../pages/NotFoundPage'));
+const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
+
 
 const ROUTES = {
   ROOT:           '/',
   LOGIN:          '/login',
   REGISTER:       '/register',
+  FORGOT_PASSWORD:  '/forgot-password', 
   DASHBOARD:      '/dashboard',
   PROJECTS:       '/projects',
   PROJECT_DETAIL: '/projects/:projectId',
@@ -64,6 +68,7 @@ export default function AppRoutes() {
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.LOGIN}    element={<LoginPage />} />
             <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+              <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
           </Route>
         </Route>
         <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
