@@ -17,6 +17,7 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
+  hydrated: boolean;
 }
 
 const token = localStorage.getItem('auth_token');
@@ -27,6 +28,7 @@ const initialState: AuthState = {
   isAuthenticated: !!token,
   loading: false,
   error: null,
+  hydrated: false,
 };
 
 const authSlice = createSlice({
@@ -42,7 +44,7 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.loading = false;
       state.error = null;
-
+      state.hydrated = true;
       localStorage.setItem('auth_token', action.payload.token);
     },
 
@@ -65,7 +67,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
-
+      state.hydrated = false;
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
     },
@@ -102,6 +104,9 @@ export const selectAuthToken = (state: { auth: AuthState }) =>
 
 export const selectCurrentUser = (state: { auth: AuthState }) =>
   state.auth.user;
+
+export const selectAuthHydrated = (state: { auth: AuthState }) =>
+  state.auth.hydrated;
 
 // ---------------------------------------------------------------------------
 // REDUCER
