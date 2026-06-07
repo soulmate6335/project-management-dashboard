@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 
-import User from '../../models/User';
+import User from '../../models/User.model';
 import { ApiError } from '../../utils/ApiError';
 import {
   generateAccessToken,
