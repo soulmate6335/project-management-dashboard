@@ -19,9 +19,12 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,      // 5 min — avoids redundant refetches
       gcTime: 1000 * 60 * 10,        // 10 min cache retention after unmount
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error: unknown) => {
         // Never retry on 401/403/404 — retrying won't fix auth or missing resources
-        if ([401, 403, 404].includes(error?.status)) return false;
+        const status = typeof error === 'object' && error !== null && 'status' in error
+          ? (error as { status?: number }).status
+          : undefined;
+        if ([401, 403, 404].includes(status ?? -1)) return false;
         return failureCount < 2;
       },
       refetchOnWindowFocus: true,
