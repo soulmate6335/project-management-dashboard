@@ -39,64 +39,71 @@ const initialState: AuthState = {
 // ---------------------------------------------------------------------------
 // Async thunks (stubs — swap out the fetch calls for your Axios service)
 // ---------------------------------------------------------------------------
-export const loginUser = createAsyncThunk(
+import authService from '../../../services/authService';
+
+export const loginUser = createAsyncThunk<
+  { user: User; token: string },
+  { email: string; password: string },
+  { rejectValue: string }
+>(
   'auth/login',
-  async (credentials: { email: string; password: string }, { rejectWithValue }) => {
+  async (credentials, { rejectWithValue }) => {
     try {
-      // TODO: replace with your authService.login(credentials)
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        return rejectWithValue(err.message ?? 'Login failed');
-      }
-      return (await response.json()) as { user: User; token: string };
-    } catch {
-      return rejectWithValue('Network error');
+      const response = await authService.login(credentials);
+      return {
+        user: {
+          ...response.user,
+          role: response.user.role as User['role'],
+        },
+        token: response.token,
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      return rejectWithValue(message);
     }
   }
 );
 
-export const registerUser = createAsyncThunk(
+export const registerUser = createAsyncThunk<
+  { user: User; token: string },
+  { name: string; email: string; password: string },
+  { rejectValue: string }
+>(
   'auth/register',
-  async (
-    payload: { name: string; email: string; password: string },
-    { rejectWithValue }
-  ) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const err = await response.json();
-        return rejectWithValue(err.message ?? 'Registration failed');
-      }
-      return (await response.json()) as { user: User; token: string };
-    } catch {
-      return rejectWithValue('Network error');
+      const response = await authService.register(payload);
+      return {
+        user: {
+          ...response.user,
+          role: response.user.role as User['role'],
+        },
+        token: response.token,
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      return rejectWithValue(message);
     }
   }
 );
 
-/** Call on app boot when a token already exists — verifies it and loads the user. */
-export const rehydrateAuth = createAsyncThunk(
+export const rehydrateAuth = createAsyncThunk<
+  User,
+  void,
+  { state: RootState; rejectValue: string }
+>(
   'auth/rehydrate',
   async (_, { getState, rejectWithValue }) => {
     const { auth } = getState() as RootState;
     if (!auth.token) return rejectWithValue('No token');
     try {
-      const response = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
-      if (!response.ok) return rejectWithValue('Token invalid');
-      return (await response.json()) as User;
+      const response = await authService.getCurrentUser();
+      return {
+        ...response,
+        role: response.role as User['role'],
+      };
     } catch {
-      return rejectWithValue('Network error');
+      return rejectWithValue('Token invalid');
     }
   }
 );
