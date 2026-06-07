@@ -77,11 +77,14 @@ export default function RegisterPage() {
   const passwordValue = watch('password');
 
   const onSubmit = async (values: RegisterFormValues) => {
-  const { confirmPassword: _, ...payload } = values;
+  const payload = {
+    name: values.name,
+    email: values.email,
+    password: values.password,
+  };
+
   await dispatch(registerUser(payload));
 };
-    
-
   const busy = isLoading || isSubmitting;
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -143,7 +146,7 @@ export default function RegisterPage() {
                 message: 'Name must be 80 characters or fewer',
               },
               pattern: {
-                value: /^[a-zA-Z\s'\-]+$/,
+                value: /^[a-zA-Z\s'-]+$/,
                 message: 'Name can only contain letters, spaces, hyphens, and apostrophes',
               },
             })}
