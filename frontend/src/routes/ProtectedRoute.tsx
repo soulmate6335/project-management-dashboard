@@ -12,7 +12,7 @@ export default function ProtectedRoute() {
 
   if (isLoading) {
     return (
-      <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <CircularProgress size={48} thickness={3} />
       </Box>
     );

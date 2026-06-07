@@ -1,4 +1,4 @@
-// src/layouts/DashboardLayout.tsx
+// src/layouts/DashboardLayout.tsx [FRONTEND]
 import { useState, useCallback } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
@@ -7,19 +7,19 @@ import {
   Avatar, Menu, MenuItem, Divider, Tooltip, Badge,
   useTheme, useMediaQuery,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import FolderIcon from '@mui/icons-material/Folder';
-import TaskAltIcon from '@mui/icons-material/TaskAlt';
-import BarChartIcon from '@mui/icons-material/BarChart';
+import MenuIcon          from '@mui/icons-material/Menu';
+import DashboardIcon     from '@mui/icons-material/Dashboard';
+import FolderIcon        from '@mui/icons-material/Folder';
+// TaskAltIcon removed: unused import
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import LogoutIcon from '@mui/icons-material/Logout';
+import ChevronLeftIcon   from '@mui/icons-material/ChevronLeft';
+import LogoutIcon        from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
-import { logout, selectCurrentUser } from '../features/auth/store/authSlice';
-import { ROUTES } from '../routes/routes';
+import { logout, selectCurrentUser }      from '../features/auth/store/authSlice';
+import { useSocketConnection }            from '../hooks/useSocket';
+import { ROUTES }                         from '../routes/routes';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,8 +30,6 @@ const DRAWER_COLLAPSED_WIDTH = 64;
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: <DashboardIcon />, to: ROUTES.DASHBOARD },
   { label: 'Projects',  icon: <FolderIcon />,    to: ROUTES.PROJECTS  },
-  { label: 'Tasks',     icon: <TaskAltIcon />,   to: ROUTES.TASKS     },
-  { label: 'Analytics', icon: <BarChartIcon />,  to: ROUTES.ANALYTICS },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -44,9 +42,12 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const currentUser = useAppSelector(selectCurrentUser);
 
-  const [sidebarOpen,       setSidebarOpen]       = useState(!isMobile);
-  const [mobileDrawerOpen,  setMobileDrawerOpen]  = useState(false);
-  const [userMenuAnchor,    setUserMenuAnchor]     = useState<null | HTMLElement>(null);
+  // ✅ Socket.io connected for all authenticated pages
+  useSocketConnection();
+
+  const [sidebarOpen,      setSidebarOpen]      = useState(!isMobile);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [userMenuAnchor,   setUserMenuAnchor]   = useState<null | HTMLElement>(null);
 
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) setMobileDrawerOpen((p) => !p);
@@ -116,12 +117,20 @@ export default function DashboardLayout() {
                   '&:not(.active):hover': { bgcolor: 'action.hover' },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 1.5 : 0, justifyContent: 'center' }}>
+                <ListItemIcon sx={{
+                  minWidth: 0,
+                  mr: sidebarOpen ? 1.5 : 0,
+                  justifyContent: 'center',
+                }}>
                   {icon}
                 </ListItemIcon>
                 {sidebarOpen && (
                   <ListItemText
-                    primary={<Typography component="span" sx={{ fontWeight: 500 }}>{label}</Typography>}
+                    primary={
+                      <Typography component="span" sx={{ fontWeight: 500 }}>
+                        {label}
+                      </Typography>
+                    }
                   />
                 )}
               </ListItemButton>
@@ -140,7 +149,10 @@ export default function DashboardLayout() {
         gap: 1.5,
         overflow: 'hidden',
       }}>
-        <Avatar sx={{ width: 32, height: 32, fontSize: 14, bgcolor: 'primary.main', flexShrink: 0 }}>
+        <Avatar sx={{
+          width: 32, height: 32,
+          fontSize: 14, bgcolor: 'primary.main', flexShrink: 0,
+        }}>
           {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
         </Avatar>
         {sidebarOpen && (
@@ -173,7 +185,7 @@ export default function DashboardLayout() {
               width: drawerWidth,
               overflowX: 'hidden',
               transition: theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
+                easing:   theme.transitions.easing.sharp,
                 duration: theme.transitions.duration.enteringScreen,
               }),
               boxSizing: 'border-box',
@@ -193,7 +205,12 @@ export default function DashboardLayout() {
           open={mobileDrawerOpen}
           onClose={() => setMobileDrawerOpen(false)}
           ModalProps={{ keepMounted: true }}
-          sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' } }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+            },
+          }}
         >
           {SidebarContent}
         </Drawer>
@@ -206,7 +223,7 @@ export default function DashboardLayout() {
         flexDirection: 'column',
         minWidth: 0,
         transition: theme.transitions.create('margin', {
-          easing: theme.transitions.easing.sharp,
+          easing:   theme.transitions.easing.sharp,
           duration: theme.transitions.duration.leavingScreen,
         }),
       }}>
@@ -243,20 +260,29 @@ export default function DashboardLayout() {
             </Tooltip>
 
             <Tooltip title="Account settings">
-              <IconButton onClick={(e) => setUserMenuAnchor(e.currentTarget)} size="small">
+              <IconButton
+                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                size="small"
+              >
                 <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 14 }}>
                   {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
                 </Avatar>
               </IconButton>
             </Tooltip>
 
+            {/* ✅ Fixed: PaperProps → slotProps for MUI v9 */}
             <Menu
               anchorEl={userMenuAnchor}
               open={Boolean(userMenuAnchor)}
               onClose={() => setUserMenuAnchor(null)}
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-              {...({ PaperProps: { elevation: 2, sx: { mt: 0.5, minWidth: 180, borderRadius: 2 } } } as any)}
+              slotProps={{
+                paper: {
+                  elevation: 2,
+                  sx: { mt: 0.5, minWidth: 180, borderRadius: 2 },
+                },
+              }}
             >
               <Box sx={{ px: 2, py: 1.5 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -268,7 +294,9 @@ export default function DashboardLayout() {
               </Box>
               <Divider />
               <MenuItem onClick={() => setUserMenuAnchor(null)} dense>
-                <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
+                <ListItemIcon>
+                  <AccountCircleIcon fontSize="small" />
+                </ListItemIcon>
                 Profile
               </MenuItem>
               <MenuItem
@@ -276,7 +304,9 @@ export default function DashboardLayout() {
                 sx={{ color: 'error.main' }}
                 onClick={() => { setUserMenuAnchor(null); handleLogout(); }}
               >
-                <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" color="error" />
+                </ListItemIcon>
                 Sign out
               </MenuItem>
             </Menu>
