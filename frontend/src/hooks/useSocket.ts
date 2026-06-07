@@ -1,7 +1,8 @@
 // src/hooks/useSocket.ts [FRONTEND]
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { connectSocket, disconnectSocket, joinProjectRoom, leaveProjectRoom, getSocket } from '../src/sockets/socket';
+// ✅ Correct
+import { connectSocket, disconnectSocket, joinProjectRoom, leaveProjectRoom, getSocket } from "../sockets/socket";
 import { useAppSelector } from '../app/hooks';
 import { selectAuthToken } from '../features/auth/store/authSlice';
 import { taskKeys } from './useTasks';
