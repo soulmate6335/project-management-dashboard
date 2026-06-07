@@ -1,26 +1,19 @@
-// src/routes/ProtectedRoute.tsx
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { useAppSelector } from '../app/hooks';
-import { selectIsAuthenticated, selectAuthLoading } from '../features/auth/store/authSlice';
-import { ROUTES } from './routes';
-import { Box, CircularProgress } from '@mui/material';
 
-export default function ProtectedRoute() {
-  const location = useLocation();
-  const isAuthenticated = useAppSelector(selectIsAuthenticated);
-  const isLoading = useAppSelector(selectAuthLoading);
-
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <CircularProgress size={48} thickness={3} />
-      </Box>
-    );
-  }
+export default function ProtectedRoute({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const isAuthenticated = useAppSelector(
+    (state) => state.auth.isAuthenticated
+  );
 
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return children;
 }

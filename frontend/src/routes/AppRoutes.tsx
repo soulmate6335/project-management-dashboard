@@ -3,10 +3,11 @@ import { lazy, Suspense }          from 'react';
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Box, CircularProgress }   from '@mui/material';
 import { useAppSelector }          from '../app/hooks';
-import { selectIsAuthenticated, selectAuthLoading } from '../features/auth/store/authSlice';
+import { selectAuthLoading, selectIsAuthenticated } from '../features/auth/store/authSlice';
 import AuthLayout                  from '../layouts/AuthLayout';
 import DashboardLayout             from '../layouts/DashboardLayout';
 import ProtectedRoute              from './ProtectedRoute';
+
 
 const LoginPage     = lazy(() => import('../pages/LoginPage'));
 const RegisterPage  = lazy(() => import('../pages/RegisterPage'));
@@ -65,7 +66,17 @@ export default function AppRoutes() {
             <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           </Route>
         </Route>
-        <Route element={<ProtectedRoute />}>
+
+<Route
+  path="/dashboard"
+  element={
+    <ProtectedRoute>
+      <DashboardPage />
+    </ProtectedRoute>
+  }
+/>
+
+        <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.DASHBOARD}     element={<DashboardPage />} />
             <Route path={ROUTES.PROJECTS}       element={<ProjectsPage />} />
