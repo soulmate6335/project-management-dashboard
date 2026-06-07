@@ -20,12 +20,13 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
-  loginUser,
   clearError,
-  selectAuth,
   selectAuthLoading,
+  selectAuthError,
   selectIsAuthenticated,
 } from '../features/auth/store/authSlice';
+
+import { loginUser } from '../features/auth/store/authThunks';
 import { ROUTES } from '../routes/routes';
 
 interface LoginFormValues {
@@ -39,7 +40,7 @@ export default function LoginPage() {
   const location = useLocation();
 
   const isLoading = useAppSelector(selectAuthLoading);
-  const { error: serverError } = useAppSelector(selectAuth);
+  const serverError = useAppSelector(selectAuthError);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   const [showPassword, setShowPassword] = useState(false);

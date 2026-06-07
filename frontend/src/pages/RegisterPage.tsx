@@ -20,12 +20,13 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
-  registerUser,
   clearError,
-  selectAuth,
   selectAuthLoading,
+  selectAuthError,
   selectIsAuthenticated,
 } from '../features/auth/store/authSlice';
+
+import { registerUser } from '../features/auth/store/authThunks';
 import { ROUTES } from '../routes/routes';
 
 interface RegisterFormValues {
@@ -40,7 +41,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   const isLoading = useAppSelector(selectAuthLoading);
-  const { error: serverError } = useAppSelector(selectAuth);
+  const serverError = useAppSelector(selectAuthError);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   const [showPassword, setShowPassword] = useState(false);

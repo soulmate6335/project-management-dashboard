@@ -1,6 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { apiClient } from '../../../services/apiClient';
 import { setCredentials, setLoading, setError } from './authSlice';
+import { syncSocketToken } from '../socketSync';
 
 // ---------------------------------------------------------------------------
 // LOGIN
@@ -19,12 +20,13 @@ export const loginUser = createAsyncThunk(
       const { user, token } = res.data.data;
 
       dispatch(setCredentials({ user, token }));
+      syncSocketToken(token);
 
-      return res.data.data;
+      return { user, token };
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
+      const apiError = err as { response?: { data?: { message?: string } } };
       const message =
-        error?.response?.data?.message || 'Login failed';
+        apiError.response?.data?.message || 'Login failed';
 
       dispatch(setError(message));
       return rejectWithValue(message);
@@ -49,12 +51,13 @@ export const registerUser = createAsyncThunk(
       const { user, token } = res.data.data;
 
       dispatch(setCredentials({ user, token }));
+      syncSocketToken(token);
 
-      return res.data.data;
+      return { user, token };
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
+      const apiError = err as { response?: { data?: { message?: string } } };
       const message =
-        error?.response?.data?.message || 'Registration failed';
+        apiError.response?.data?.message || 'Registration failed';
 
       dispatch(setError(message));
       return rejectWithValue(message);

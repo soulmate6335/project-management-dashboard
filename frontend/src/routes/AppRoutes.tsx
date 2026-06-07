@@ -66,16 +66,6 @@ export default function AppRoutes() {
             <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           </Route>
         </Route>
-
-<Route
-  path="/dashboard"
-  element={
-    <ProtectedRoute>
-      <DashboardPage />
-    </ProtectedRoute>
-  }
-/>
-
         <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.DASHBOARD}     element={<DashboardPage />} />

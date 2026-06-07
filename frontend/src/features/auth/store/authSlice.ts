@@ -1,6 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-export * from './authThunks';
 
 export type UserRole = 'admin' | 'member' | 'viewer';
 
@@ -45,11 +44,9 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.hydrated = true;
-      localStorage.setItem('auth_token', action.payload.token);
-    },
 
-    clearError: (state) => {
-      state.error = null;
+      localStorage.setItem('auth_token', action.payload.token);
+      localStorage.setItem('auth_user', JSON.stringify(action.payload.user));
     },
 
     setLoading: (state, action: PayloadAction<boolean>) => {
@@ -61,6 +58,10 @@ const authSlice = createSlice({
       state.loading = false;
     },
 
+    clearError: (state) => {
+      state.error = null;
+    },
+
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -68,26 +69,44 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.hydrated = false;
+
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
       localStorage.removeItem('refresh_token');
+    },
+
+    hydrateAuth: (state) => {
+      const token = localStorage.getItem('auth_token');
+      const user = localStorage.getItem('auth_user');
+
+      if (token) {
+        state.token = token;
+        state.isAuthenticated = true;
+      }
+
+      if (user) {
+        try {
+          state.user = JSON.parse(user);
+        } catch {
+          localStorage.removeItem('auth_user');
+        }
+      }
+
+      state.hydrated = true;
     },
   },
 });
 
-// ---------------------------------------------------------------------------
-// ACTIONS
-// ---------------------------------------------------------------------------
 export const {
   setCredentials,
   setLoading,
   setError,
   clearError,
-  logout,   // ✅ FIXED: THIS WAS MISSING
+  logout,
+  hydrateAuth,
 } = authSlice.actions;
 
-// ---------------------------------------------------------------------------
 // SELECTORS
-// ---------------------------------------------------------------------------
 export const selectAuth = (state: { auth: AuthState }) => state.auth;
 
 export const selectIsAuthenticated = (state: { auth: AuthState }) =>
@@ -108,7 +127,4 @@ export const selectCurrentUser = (state: { auth: AuthState }) =>
 export const selectAuthHydrated = (state: { auth: AuthState }) =>
   state.auth.hydrated;
 
-// ---------------------------------------------------------------------------
-// REDUCER
-// ---------------------------------------------------------------------------
 export default authSlice.reducer;
