@@ -1,107 +1,87 @@
-// src/features/auth/store/authSlice.ts
+// src/features/auth/store/authSlice.ts [FRONTEND]
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PayloadAction } from '@reduxjs/toolkit';
-import type { RootState } from '../../../store/store';
+import type { PayloadAction }            from '@reduxjs/toolkit';
+import type { RootState }                from '../../../store/store';
+import authService                       from '../../../services/authService';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'member' | 'viewer';
-  avatarUrl?: string;
+  id:      string;
+  name:    string;
+  email:   string;
+  role:    'admin' | 'member' | 'viewer';
+  avatar?: string;
 }
 
 interface AuthState {
-  user: User | null;
-  token: string | null;
-  /** true while rehydrating from storage or a login request is in flight */
+  user:    User | null;
+  token:   string | null;
   loading: boolean;
-  error: string | null;
+  error:   string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Initial state — token seeded from localStorage so the app works across
-// hard refreshes without a full redux-persist setup.
+// Initial state
 // ---------------------------------------------------------------------------
 const storedToken = localStorage.getItem('auth_token');
 
 const initialState: AuthState = {
-  user: null,
-  token: storedToken,
-  // If we have a token we'll need to verify it; keep loading=true until then.
+  user:    null,
+  token:   storedToken,
   loading: Boolean(storedToken),
-  error: null,
+  error:   null,
 };
 
 // ---------------------------------------------------------------------------
-// Async thunks (stubs — swap out the fetch calls for your Axios service)
+// Thunks
 // ---------------------------------------------------------------------------
-import authService from '../../../services/authService';
-
-export const loginUser = createAsyncThunk<
-  { user: User; token: string },
-  { email: string; password: string },
-  { rejectValue: string }
->(
+export const loginUser = createAsyncThunk(
   'auth/login',
-  async (credentials, { rejectWithValue }) => {
+  async (
+    credentials: { email: string; password: string },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await authService.login(credentials);
-      return {
-        user: {
-          ...response.user,
-          role: response.user.role as User['role'],
-        },
-        token: response.token,
-      };
+      return await authService.login(credentials);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
+      let message = 'Login failed';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const e = err as any;
+        message = e.response?.data?.message ?? message;
+      }
       return rejectWithValue(message);
     }
   }
 );
 
-export const registerUser = createAsyncThunk<
-  { user: User; token: string },
-  { name: string; email: string; password: string },
-  { rejectValue: string }
->(
+export const registerUser = createAsyncThunk(
   'auth/register',
-  async (payload, { rejectWithValue }) => {
+  async (
+    payload: { name: string; email: string; password: string },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await authService.register(payload);
-      return {
-        user: {
-          ...response.user,
-          role: response.user.role as User['role'],
-        },
-        token: response.token,
-      };
+      return await authService.register(payload);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
+      let message = 'Registration failed';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const e = err as any;
+        message = e.response?.data?.message ?? message;
+      }
       return rejectWithValue(message);
     }
   }
 );
 
-export const rehydrateAuth = createAsyncThunk<
-  User,
-  void,
-  { state: RootState; rejectValue: string }
->(
+export const rehydrateAuth = createAsyncThunk(
   'auth/rehydrate',
-  async (_, { getState, rejectWithValue }) => {
-    const { auth } = getState() as RootState;
-    if (!auth.token) return rejectWithValue('No token');
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await authService.getCurrentUser();
-      return {
-        ...response,
-        role: response.role as User['role'],
-      };
+      return await authService.getCurrentUser();
     } catch {
       return rejectWithValue('Token invalid');
     }
@@ -115,73 +95,90 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    /** Hard logout — clears everything and removes the persisted token. */
     logout(state) {
-      state.user = null;
-      state.token = null;
+      state.user    = null;
+      state.token   = null;
       state.loading = false;
-      state.error = null;
+      state.error   = null;
       localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
     },
     clearError(state) {
       state.error = null;
     },
+    setCredentials(
+      state,
+      action: PayloadAction<{ user: User; token: string }>
+    ) {
+      state.user  = action.payload.user;
+      state.token = action.payload.token;
+      localStorage.setItem('auth_token', action.payload.token);
+    },
   },
   extraReducers: (builder) => {
-    // ── login ──────────────────────────────────────────────────────────
+    // ── loginUser ──────────────────────────────────────────────────────
     builder
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
-        state.error = null;
+        state.error   = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.user    = action.payload.user as User;
+        state.token   = action.payload.token;
         localStorage.setItem('auth_token', action.payload.token);
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refresh_token', action.payload.refreshToken);
+        }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error   = action.payload as string;
       });
 
-    // ── register ───────────────────────────────────────────────────────
+    // ── registerUser ───────────────────────────────────────────────────
     builder
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
-        state.error = null;
+        state.error   = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.user    = action.payload.user as User;
+        state.token   = action.payload.token;
         localStorage.setItem('auth_token', action.payload.token);
+        if (action.payload.refreshToken) {
+          localStorage.setItem('refresh_token', action.payload.refreshToken);
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.error   = action.payload as string;
       });
 
-    // ── rehydrate ──────────────────────────────────────────────────────
+    // ── rehydrateAuth ──────────────────────────────────────────────────
     builder
       .addCase(rehydrateAuth.pending, (state) => {
         state.loading = true;
       })
-      .addCase(rehydrateAuth.fulfilled, (state, action: PayloadAction<User>) => {
+      .addCase(rehydrateAuth.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user    = action.payload as User;
       })
       .addCase(rehydrateAuth.rejected, (state) => {
-        // Token was invalid or expired — full reset.
         state.loading = false;
-        state.user = null;
-        state.token = null;
+        state.user    = null;
+        state.token   = null;
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
       });
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+export const { logout, clearError, setCredentials } = authSlice.actions;
 
 // ---------------------------------------------------------------------------
 // Selectors
@@ -189,12 +186,16 @@ export const { logout, clearError } = authSlice.actions;
 export const selectIsAuthenticated = (state: RootState): boolean =>
   Boolean(state.auth.token && state.auth.user);
 
-export const selectAuthLoading = (state: RootState): boolean => state.auth.loading;
+export const selectAuthLoading = (state: RootState): boolean =>
+  state.auth.loading;
 
-export const selectCurrentUser = (state: RootState): User | null => state.auth.user;
+export const selectCurrentUser = (state: RootState): User | null =>
+  state.auth.user;
 
-export const selectAuthError = (state: RootState): string | null => state.auth.error;
+export const selectAuthError = (state: RootState): string | null =>
+  state.auth.error;
 
-export const selectAuthToken = (state: RootState): string | null => state.auth.token;
+export const selectAuthToken = (state: RootState): string | null =>
+  state.auth.token;
 
 export default authSlice.reducer;
