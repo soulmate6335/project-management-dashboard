@@ -66,7 +66,7 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
@@ -74,7 +74,7 @@ export default function RegisterPage() {
   });
 
   // Live password value — used by confirmPassword cross-field validation
-  const passwordValue = watch('password');
+  const passwordValue = getValues('password');
 
   const onSubmit = async (values: RegisterFormValues) => {
   const payload = {
