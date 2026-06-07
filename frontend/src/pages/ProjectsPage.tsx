@@ -18,6 +18,7 @@ import ArchiveIcon       from '@mui/icons-material/Archive';
 import DeleteIcon        from '@mui/icons-material/Delete';
 import GroupIcon         from '@mui/icons-material/Group';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import TaskAltIcon       from '@mui/icons-material/TaskAlt';
 
 import {
   useProjects,
@@ -257,17 +258,39 @@ function ProjectCard({
       </CardActionArea>
 
       <Divider />
-      <CardActions sx={{ px: 2, py: 0.75, justifyContent: 'space-between' }}>
-        <Typography variant="caption" color="text.secondary" noWrap>
-          {project.owner.name}
-        </Typography>
-        <Tooltip title="More options">
-          <IconButton size="small"
-            onClick={(e) => { e.stopPropagation(); onMenuOpen(e, project); }}>
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </CardActions>
+      // Inside CardActions in ProjectCard — add this button:
+<CardActions sx={{ px: 2, py: 0.75, justifyContent: 'space-between' }}>
+  <Typography variant="caption" color="text.secondary" noWrap>
+    {project.owner.name}
+  </Typography>
+
+  <Stack direction="row" sx={{ alignItems: 'center' }}>
+    {/* ✅ Add this button */}
+    <Tooltip title="View Tasks">
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(`/projects/${project._id}/tasks`);
+        }}
+      >
+        <TaskAltIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+
+    <Tooltip title="More options">
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          onMenuOpen(e, project);
+        }}
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  </Stack>
+</CardActions>
     </Card>
   );
 }
