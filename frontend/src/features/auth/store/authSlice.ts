@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction }            from '@reduxjs/toolkit';
 import type { RootState }                from '../../../store/store';
 import authService                       from '../../../services/authService';
+import type { AuthResponse, AuthUser }   from '../../../services/authService';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,7 +13,7 @@ export interface User {
   name:    string;
   email:   string;
   role:    'admin' | 'member' | 'viewer';
-  avatar?: string;
+  avatar?: string | null;
 }
 
 interface AuthState {
@@ -23,6 +24,33 @@ interface AuthState {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// Backend returns _id — normalise to id for consistent use across the frontend
+function normaliseUser(user: AuthUser): User {
+  return {
+    id:     user._id ?? user.id ?? '',
+    name:   user.name,
+    email:  user.email,
+    role:   (user.role as User['role']) ?? 'member',
+    avatar: user.avatar ?? null,
+  };
+}
+
+function saveTokens(token: string, refreshToken?: string): void {
+  localStorage.setItem('auth_token', token);
+  if (refreshToken) {
+    localStorage.setItem('refresh_token', refreshToken);
+  }
+}
+
+function clearTokens(): void {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('refresh_token');
+}
+
+// ---------------------------------------------------------------------------
 // Initial state
 // ---------------------------------------------------------------------------
 const storedToken = localStorage.getItem('auth_token');
@@ -30,7 +58,7 @@ const storedToken = localStorage.getItem('auth_token');
 const initialState: AuthState = {
   user:    null,
   token:   storedToken,
-  loading: Boolean(storedToken),
+  loading: Boolean(storedToken), // true = still rehydrating from storage
   error:   null,
 };
 
@@ -46,13 +74,10 @@ export const loginUser = createAsyncThunk(
     try {
       return await authService.login(credentials);
     } catch (err: unknown) {
-      let message = 'Login failed';
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const e = err as any;
-        message = e.response?.data?.message ?? message;
-      }
-      return rejectWithValue(message);
+      const error = err as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        error.response?.data?.message ?? 'Login failed'
+      );
     }
   }
 );
@@ -66,13 +91,10 @@ export const registerUser = createAsyncThunk(
     try {
       return await authService.register(payload);
     } catch (err: unknown) {
-      let message = 'Registration failed';
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const e = err as any;
-        message = e.response?.data?.message ?? message;
-      }
-      return rejectWithValue(message);
+      const error = err as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        error.response?.data?.message ?? 'Registration failed'
+      );
     }
   }
 );
@@ -100,8 +122,7 @@ const authSlice = createSlice({
       state.token   = null;
       state.loading = false;
       state.error   = null;
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('refresh_token');
+      clearTokens();
     },
     clearError(state) {
       state.error = null;
@@ -122,14 +143,11 @@ const authSlice = createSlice({
         state.loading = true;
         state.error   = null;
       })
-      .addCase(loginUser.fulfilled, (state, action) => {
+      .addCase(loginUser.fulfilled, (state, action: { payload: AuthResponse }) => {
         state.loading = false;
-        state.user    = action.payload.user as User;
+        state.user    = normaliseUser(action.payload.user);
         state.token   = action.payload.token;
-        localStorage.setItem('auth_token', action.payload.token);
-        if (action.payload.refreshToken) {
-          localStorage.setItem('refresh_token', action.payload.refreshToken);
-        }
+        saveTokens(action.payload.token, action.payload.refreshToken);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -142,14 +160,11 @@ const authSlice = createSlice({
         state.loading = true;
         state.error   = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addCase(registerUser.fulfilled, (state, action: { payload: AuthResponse }) => {
         state.loading = false;
-        state.user    = action.payload.user as User;
+        state.user    = normaliseUser(action.payload.user);
         state.token   = action.payload.token;
-        localStorage.setItem('auth_token', action.payload.token);
-        if (action.payload.refreshToken) {
-          localStorage.setItem('refresh_token', action.payload.refreshToken);
-        }
+        saveTokens(action.payload.token, action.payload.refreshToken);
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -161,16 +176,15 @@ const authSlice = createSlice({
       .addCase(rehydrateAuth.pending, (state) => {
         state.loading = true;
       })
-      .addCase(rehydrateAuth.fulfilled, (state, action) => {
+      .addCase(rehydrateAuth.fulfilled, (state, action: { payload: AuthUser }) => {
         state.loading = false;
-        state.user    = action.payload as User;
+        state.user    = normaliseUser(action.payload);
       })
       .addCase(rehydrateAuth.rejected, (state) => {
         state.loading = false;
         state.user    = null;
         state.token   = null;
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
+        clearTokens();
       });
   },
 });
