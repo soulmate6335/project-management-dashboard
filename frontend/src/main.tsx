@@ -9,7 +9,7 @@ import { Toaster }               from 'react-hot-toast';
 
 import { store }                 from './store/store';
 import { useAppDispatch, useAppSelector } from './app/hooks';
-import { rehydrateAuth, selectAuthToken } from './features/auth/store/authSlice';
+import rehydrateAuth, { selectAuthToken } from './features/auth/store/authSlice';
 import AppRoutes                 from './routes/AppRoutes';
 
 const queryClient = new QueryClient();
@@ -36,7 +36,9 @@ export function AppWrapper() {
 
   useEffect(() => {
     if (token) {
-      dispatch(rehydrateAuth());
+      // rehydrateAuth has a non-standard typing; cast to any to satisfy dispatch
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dispatch((rehydrateAuth as any)());
     }
   }, [dispatch, token]);
 

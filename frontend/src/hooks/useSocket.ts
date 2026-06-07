@@ -13,7 +13,7 @@ import type { Task, Project } from '../types';
 // useSocketConnection — call once in App root after login
 // ---------------------------------------------------------------------------
 export function useSocketConnection() {
-  const token = useAppSelector(selectAuthToken);
+  const token = useAppSelector(selectAuthToken) as string | null;
 
   useEffect(() => {
     if (!token) return;

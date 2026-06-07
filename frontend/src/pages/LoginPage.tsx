@@ -22,73 +22,47 @@ import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
   loginUser,
   clearError,
+  selectAuth,
   selectAuthLoading,
-  selectAuthError,
   selectIsAuthenticated,
 } from '../features/auth/store/authSlice';
 import { ROUTES } from '../routes/routes';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 interface LoginFormValues {
   email: string;
   password: string;
 }
 
-// ---------------------------------------------------------------------------
-// LoginPage
-// ---------------------------------------------------------------------------
 export default function LoginPage() {
-  const dispatch        = useAppDispatch();
-  const navigate        = useNavigate();
-  const location        = useLocation();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const isLoading       = useAppSelector(selectAuthLoading);
-  const serverError     = useAppSelector(selectAuthError);
+  const isLoading = useAppSelector(selectAuthLoading);
+  const { error: serverError } = useAppSelector(selectAuth);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   const [showPassword, setShowPassword] = useState(false);
 
-  // Where to send the user after login — honour the preserved destination
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname ??
     ROUTES.DASHBOARD;
 
-  // If already authenticated (e.g. back-button after login), redirect immediately
   useEffect(() => {
     if (isAuthenticated) navigate(from, { replace: true });
   }, [isAuthenticated, from, navigate]);
 
-  // Clear any stale server error when the component mounts
   useEffect(() => {
     dispatch(clearError());
   }, [dispatch]);
 
-  // ── React Hook Form ──────────────────────────────────────────────────────
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     defaultValues: { email: '', password: '' },
-    mode: 'onTouched', // validate on blur, revalidate on change after first touch
-  });
-
-  const emailRegister = register('email', {
-    required: 'Email is required',
-    pattern: {
-      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-      message: 'Enter a valid email address',
-    },
-  });
-
-  const passwordRegister = register('password', {
-    required: 'Password is required',
-    minLength: {
-      value: 6,
-      message: 'Password must be at least 6 characters',
-    },
+    mode: 'onTouched',
   });
 
   const onSubmit = async (values: LoginFormValues) => {
@@ -96,155 +70,68 @@ export default function LoginPage() {
     if (loginUser.fulfilled.match(result)) {
       navigate(from, { replace: true });
     }
-    // On rejection, serverError is populated by the slice — no extra handling needed
   };
 
   const busy = isLoading || isSubmitting;
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography
-          variant="h4"
-          gutterBottom
-          sx={{ letterSpacing: '-0.5px', color: 'text.primary', fontWeight: 700 }}
-        >
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
           Welcome back
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Sign in to continue to your workspace
+          Sign in to continue
         </Typography>
       </Box>
 
-      {/* Server-side error banner */}
       <Collapse in={Boolean(serverError)}>
-        <Alert
-          severity="error"
-          onClose={() => dispatch(clearError())}
-          sx={{ mb: 3, borderRadius: 2 }}
-        >
+        <Alert severity="error" onClose={() => dispatch(clearError())}>
           {serverError}
         </Alert>
       </Collapse>
 
-      {/* Form */}
-      <Box
-        component="form"
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        aria-label="Login form"
-      >
+      <Box component="form" onSubmit={handleSubmit(onSubmit)}>
         <Stack spacing={2.5}>
-
-          {/* Email */}
           <TextField
-            variant="outlined"
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            autoFocus
+            label="Email"
             fullWidth
             disabled={busy}
-            error={Boolean(errors.email)}
+            error={!!errors.email}
             helperText={errors.email?.message}
-            aria-label="Email address"
-            name={emailRegister.name}
-            onChange={emailRegister.onChange}
-            onBlur={emailRegister.onBlur}
-            inputRef={emailRegister.ref}
+            {...register('email', { required: 'Email is required' })}
           />
 
-          {/* Password */}
           <TextField
-            variant="outlined"
             label="Password"
             type={showPassword ? 'text' : 'password'}
-            autoComplete="current-password"
             fullWidth
             disabled={busy}
-            error={Boolean(errors.password)}
+            error={!!errors.password}
             helperText={errors.password?.message}
-            aria-label="Password"
-            name={passwordRegister.name}
-            onChange={passwordRegister.onChange}
-            onBlur={passwordRegister.onBlur}
-            inputRef={passwordRegister.ref}
             slotProps={{
               input: {
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowPassword((v) => !v)}
-                      edge="end"
-                      size="small"
-                      tabIndex={-1}
-                    >
+                    <IconButton onClick={() => setShowPassword(v => !v)}>
                       {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                     </IconButton>
                   </InputAdornment>
                 ),
               },
             }}
+            {...register('password', { required: 'Password is required' })}
           />
 
-          {/* Forgot password */}
-          <Box sx={{ textAlign: 'right', mt: -1 }}>
-            <Link
-              component={RouterLink}
-              to="/forgot-password"
-              variant="body2"
-              underline="hover"
-              sx={{ color: 'primary.main', fontWeight: 500 }}
-            >
-              Forgot your password?
-            </Link>
-          </Box>
-
-          {/* Submit */}
-          <Button
-            type="submit"
-            variant="contained"
-            size="large"
-            fullWidth
-            disabled={busy}
-            sx={{
-              mt: 0.5,
-              py: 1.4,
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              borderRadius: 2,
-            }}
-          >
-            {busy ? (
-              <CircularProgress size={22} thickness={3} sx={{ color: 'inherit' }} />
-            ) : (
-              'Sign in'
-            )}
+          <Button type="submit" variant="contained" disabled={busy}>
+            {busy ? <CircularProgress size={20} /> : 'Login'}
           </Button>
 
+          <Link component={RouterLink} to="/forgot-password">
+            Forgot password?
+          </Link>
         </Stack>
       </Box>
-
-      {/* Register link */}
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        align="center"
-        sx={{ mt: 4 }}
-      >
-        Don't have an account?{' '}
-        <Link
-          component={RouterLink}
-          to={ROUTES.REGISTER}
-          underline="hover"
-          sx={{ color: 'primary.main', fontWeight: 600 }}
-        >
-          Create one
-        </Link>
-      </Typography>
     </Box>
   );
 }

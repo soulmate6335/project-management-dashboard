@@ -1,9 +1,10 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+export * from './authThunks';
 
 export type UserRole = 'admin' | 'member' | 'viewer';
 
-interface User {
+export interface User {
   id: string;
   email: string;
   role: UserRole;
@@ -15,13 +16,17 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   loading: boolean;
+  error: string | null;
 }
+
+const token = localStorage.getItem('auth_token');
 
 const initialState: AuthState = {
   user: null,
-  token: localStorage.getItem('auth_token'),
-  isAuthenticated: !!localStorage.getItem('auth_token'),
+  token,
+  isAuthenticated: !!token,
   loading: false,
+  error: null,
 };
 
 const authSlice = createSlice({
@@ -36,12 +41,22 @@ const authSlice = createSlice({
       state.token = action.payload.token;
       state.isAuthenticated = true;
       state.loading = false;
+      state.error = null;
 
       localStorage.setItem('auth_token', action.payload.token);
     },
 
+    clearError: (state) => {
+      state.error = null;
+    },
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
+    },
+
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+      state.loading = false;
     },
 
     logout: (state) => {
@@ -49,6 +64,7 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
       state.loading = false;
+      state.error = null;
 
       localStorage.removeItem('auth_token');
       localStorage.removeItem('refresh_token');
@@ -59,22 +75,33 @@ const authSlice = createSlice({
 // ---------------------------------------------------------------------------
 // ACTIONS
 // ---------------------------------------------------------------------------
-export const { setCredentials, setLoading, logout } = authSlice.actions;
+export const {
+  setCredentials,
+  setLoading,
+  setError,
+  clearError,
+  logout,   // ✅ FIXED: THIS WAS MISSING
+} = authSlice.actions;
 
 // ---------------------------------------------------------------------------
-// SELECTORS (FIX FOR YOUR AppRoutes.tsx ERROR)
+// SELECTORS
 // ---------------------------------------------------------------------------
-export interface RootState {
-  auth: AuthState;
-}
+export const selectAuth = (state: { auth: AuthState }) => state.auth;
 
-export const selectAuth = (state: RootState) => state.auth;
-
-export const selectIsAuthenticated = (state: RootState) =>
+export const selectIsAuthenticated = (state: { auth: AuthState }) =>
   state.auth.isAuthenticated;
 
-export const selectAuthLoading = (state: RootState) =>
+export const selectAuthLoading = (state: { auth: AuthState }) =>
   state.auth.loading;
+
+export const selectAuthError = (state: { auth: AuthState }) =>
+  state.auth.error;
+
+export const selectAuthToken = (state: { auth: AuthState }) =>
+  state.auth.token;
+
+export const selectCurrentUser = (state: { auth: AuthState }) =>
+  state.auth.user;
 
 // ---------------------------------------------------------------------------
 // REDUCER

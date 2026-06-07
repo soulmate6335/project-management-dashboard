@@ -1,33 +1,62 @@
 import api from '../services/apiClient';
 import { useAppDispatch } from '../app/hooks';
-import { setCredentials, logout } from '../features/auth/store/authSlice';
+import {
+  setCredentials,
+  setLoading,
+  logout,
+} from '../features/auth/store/authSlice';
 
 export function useAuth() {
   const dispatch = useAppDispatch();
 
+  // ---------------------------------------------------------------------------
+  // LOGIN
+  // ---------------------------------------------------------------------------
   const login = async (email: string, password: string) => {
-    const res = await api.post('/auth/login', {
-      email,
-      password,
-    });
+    try {
+      dispatch(setLoading(true));
 
-    const { user, token } = res.data.data;
+      const res = await api.post('/auth/login', {
+        email,
+        password,
+      });
 
-    dispatch(setCredentials({ user, token }));
+      const { user, token } = res.data.data;
+
+      dispatch(setCredentials({ user, token }));
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    const res = await api.post('/auth/register', {
-      name,
-      email,
-      password,
-    });
+  // ---------------------------------------------------------------------------
+  // REGISTER
+  // ---------------------------------------------------------------------------
+  const register = async (
+    name: string,
+    email: string,
+    password: string
+  ) => {
+    try {
+      dispatch(setLoading(true));
 
-    const { user, token } = res.data.data;
+      const res = await api.post('/auth/register', {
+        name,
+        email,
+        password,
+      });
 
-    dispatch(setCredentials({ user, token }));
+      const { user, token } = res.data.data;
+
+      dispatch(setCredentials({ user, token }));
+    } finally {
+      dispatch(setLoading(false));
+    }
   };
 
+  // ---------------------------------------------------------------------------
+  // LOGOUT
+  // ---------------------------------------------------------------------------
   const logoutUser = () => {
     dispatch(logout());
   };
