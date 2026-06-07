@@ -73,6 +73,7 @@ const authSlice = createSlice({
       state.user    = action.payload;
       state.loading = false;
     },
+    
     rehydrateFailed(state) {
       state.user    = null;
       state.token   = null;

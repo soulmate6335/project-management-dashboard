@@ -1,4 +1,4 @@
-// src/pages/DashboardPage.tsx
+// src/pages/DashboardPage.tsx [FRONTEND]
 import { useMemo }       from 'react';
 import { useNavigate }   from 'react-router-dom';
 import {
@@ -6,19 +6,19 @@ import {
   CardContent, Chip, Divider, Grid, LinearProgress, Skeleton,
   Stack, Typography,
 } from '@mui/material';
-import FolderIcon        from '@mui/icons-material/Folder';
-import TaskAltIcon       from '@mui/icons-material/TaskAlt';
+import FolderIcon         from '@mui/icons-material/Folder';
+import TaskAltIcon        from '@mui/icons-material/TaskAlt';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import TrendingUpIcon    from '@mui/icons-material/TrendingUp';
-import AddIcon           from '@mui/icons-material/Add';
-import ArrowForwardIcon  from '@mui/icons-material/ArrowForward';
+import TrendingUpIcon     from '@mui/icons-material/TrendingUp';
+import AddIcon            from '@mui/icons-material/Add';
+import ArrowForwardIcon   from '@mui/icons-material/ArrowForward';
 
-import { useProjects }   from '../hooks/useProjects';
+import { useProjects }    from '../hooks/useProjects';
 import { useTaskSummary } from '../hooks/useTasks';
 import { useAppSelector } from '../app/hooks';
 import { selectCurrentUser } from '../features/auth/store/authSlice';
-import type { Project }  from '../types';
-import { ROUTES }        from '../routes/routes';
+import type { Project }   from '../types';
+import { ROUTES }         from '../routes/AppRoutes'; // ✅ fixed import
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -59,7 +59,7 @@ function StatCard({ label, value, icon, color, loading, sub }: StatCardProps) {
   return (
     <Card variant="outlined" sx={{ borderRadius: 3, height: '100%' }}>
       <CardContent>
-        <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               {label}
@@ -85,7 +85,7 @@ function StatCard({ label, value, icon, color, loading, sub }: StatCardProps) {
           }}>
             {icon}
           </Box>
-        </Box>
+        </Stack>
       </CardContent>
     </Card>
   );
@@ -113,7 +113,7 @@ function RecentProjectCard({ project }: { project: Project }) {
             gap: 1,
             mb: 1.5,
           }}>
-            <Typography variant="subtitle2" component="div" sx={{
+            <Typography variant="subtitle2" sx={{
               fontWeight: 600,
               overflow: 'hidden', display: '-webkit-box',
               WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
@@ -128,7 +128,6 @@ function RecentProjectCard({ project }: { project: Project }) {
             />
           </Box>
 
-          {/* Progress bar */}
           <Stack direction="row" sx={{ mb: 0.5, justifyContent: 'space-between' }}>
             <Typography variant="caption" color="text.secondary">Progress</Typography>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>{project.progress}%</Typography>
@@ -140,9 +139,9 @@ function RecentProjectCard({ project }: { project: Project }) {
             sx={{ height: 5, borderRadius: 1, mb: 1.5 }}
           />
 
-          {/* Footer */}
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <AvatarGroup max={3} sx={{ '& .MuiAvatar.root': { width: 22, height: 22, fontSize: 10 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {/* ✅ Fixed: MuiAvatar.root → MuiAvatar-root */}
+            <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 22, height: 22, fontSize: 10 } }}>
               <Avatar sx={{ bgcolor: 'primary.main' }}>
                 {project.owner.name[0]?.toUpperCase()}
               </Avatar>
@@ -155,7 +154,7 @@ function RecentProjectCard({ project }: { project: Project }) {
             <Typography variant="caption" color="text.secondary">
               {formatDate(project.updatedAt)}
             </Typography>
-          </Stack>
+          </Box>
         </CardContent>
       </CardActionArea>
     </Card>
@@ -163,7 +162,7 @@ function RecentProjectCard({ project }: { project: Project }) {
 }
 
 // ---------------------------------------------------------------------------
-// TaskSummaryBar — shows task counts per status for all active projects
+// TaskSummarySection
 // ---------------------------------------------------------------------------
 function TaskSummarySection({ projectId }: { projectId: string }) {
   const { data: summary, isLoading } = useTaskSummary(projectId);
@@ -184,9 +183,8 @@ function TaskSummarySection({ projectId }: { projectId: string }) {
   ] as const;
 
   return (
-    <Stack spacing={0.75}>
-      {/* Stacked bar */}
-      <Stack direction="row" sx={{ height: 8, borderRadius: 1, overflow: 'hidden', gap: '2px' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'row', height: 8, borderRadius: 1, overflow: 'hidden', gap: '2px' }}>
         {segments.map(({ key, color }) => {
           const count = summary[key] ?? 0;
           const pct   = total > 0 ? (count / total) * 100 : 0;
@@ -194,22 +192,21 @@ function TaskSummarySection({ projectId }: { projectId: string }) {
             <Box key={key} sx={{ width: `${pct}%`, bgcolor: color, borderRadius: 0.5 }} />
           ) : null;
         })}
-      </Stack>
-      {/* Legend */}
-      <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }}>
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: 1.5 }}>
         {segments.map(({ key, color, label }) => {
           const count = summary[key] ?? 0;
           return count > 0 ? (
-            <Stack key={key} direction="row" spacing={0.4} sx={{ alignItems: 'center' }}>
+            <Box key={key} sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 0.4 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color }} />
               <Typography variant="caption" color="text.secondary">
                 {label} ({count})
               </Typography>
-            </Stack>
+            </Box>
           ) : null;
         })}
-      </Stack>
-    </Stack>
+      </Box>
+    </Box>
   );
 }
 
@@ -223,13 +220,12 @@ export default function DashboardPage() {
   const { data: projectsData, isLoading: projectsLoading, isError } =
     useProjects({ limit: 6, sortBy: 'updatedAt', sortDir: 'desc' });
 
-  const projects = useMemo(() => projectsData?.data ?? [], [projectsData]);
+  const projects      = useMemo(() => projectsData?.data  ?? [], [projectsData]);
   const totalProjects = projectsData?.meta?.total ?? 0;
 
-  // Aggregate stats across all returned projects
   const stats = useMemo(() => {
-    const active   = projects.filter((p) => p.status === 'active').length;
-    const archived = projects.filter((p) => p.status === 'archived').length;
+    const active      = projects.filter((p) => p.status === 'active').length;
+    const archived    = projects.filter((p) => p.status === 'archived').length;
     const avgProgress = projects.length
       ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)
       : 0;
@@ -254,63 +250,48 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {/* ── Stat cards ──────────────────────────────────────────────────── */}
+      {/* Stat cards */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Total Projects"
-            value={totalProjects}
-            icon={<FolderIcon />}
-            color="#2563eb"
-            loading={projectsLoading}
-            sub={`${stats.active} active`}
+            label="Total Projects" value={totalProjects}
+            icon={<FolderIcon />} color="#2563eb"
+            loading={projectsLoading} sub={`${stats.active} active`}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Active Projects"
-            value={stats.active}
-            icon={<PendingActionsIcon />}
-            color="#f59e0b"
-            loading={projectsLoading}
-            sub={`${stats.archived} archived`}
+            label="Active Projects" value={stats.active}
+            icon={<PendingActionsIcon />} color="#f59e0b"
+            loading={projectsLoading} sub={`${stats.archived} archived`}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Avg. Progress"
-            value={`${stats.avgProgress}%`}
-            icon={<TrendingUpIcon />}
-            color="#7c3aed"
-            loading={projectsLoading}
-            sub="across all projects"
+            label="Avg. Progress" value={`${stats.avgProgress}%`}
+            icon={<TrendingUpIcon />} color="#7c3aed"
+            loading={projectsLoading} sub="across all projects"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Completed"
-            value={projects.filter((p) => p.progress === 100).length}
-            icon={<TaskAltIcon />}
-            color="#22c55e"
-            loading={projectsLoading}
-            sub="projects at 100%"
+            label="Completed" value={projects.filter((p) => p.progress === 100).length}
+            icon={<TaskAltIcon />} color="#22c55e"
+            loading={projectsLoading} sub="projects at 100%"
           />
         </Grid>
       </Grid>
 
-      {/* ── Recent projects ──────────────────────────────────────────────── */}
-      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }} component="div">
-        <Typography variant="h6" sx={{ fontWeight: 600 }} component="h2">
+      {/* Recent projects */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Recent Projects
         </Typography>
-        <Button
-          size="small"
-          endIcon={<ArrowForwardIcon />}
-          onClick={() => navigate(ROUTES.PROJECTS)}
-        >
+        <Button size="small" endIcon={<ArrowForwardIcon />}
+          onClick={() => navigate(ROUTES.PROJECTS)}>
           View all
         </Button>
-      </Stack>
+      </Box>
 
       {projectsLoading ? (
         <Grid container spacing={2.5}>
@@ -320,7 +301,7 @@ export default function DashboardPage() {
                 <CardContent>
                   <Skeleton variant="text" width="70%" height={24} />
                   <Skeleton variant="rectangular" height={5} sx={{ mt: 2, borderRadius: 1 }} />
-                  <Stack direction="row" sx={{ justifyContent: "space-between", mt: 2 }}>
+                  <Stack direction="row" sx={{ mt: 2, justifyContent: 'space-between' }}>
                     <Skeleton variant="circular" width={22} height={22} />
                     <Skeleton variant="text" width={80} />
                   </Stack>
@@ -339,11 +320,8 @@ export default function DashboardPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
               Create your first project to see it here
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate(ROUTES.PROJECTS)}
-            >
+            <Button variant="contained" startIcon={<AddIcon />}
+              onClick={() => navigate(ROUTES.PROJECTS)}>
               Go to Projects
             </Button>
           </CardContent>
@@ -358,7 +336,7 @@ export default function DashboardPage() {
         </Grid>
       )}
 
-      {/* ── Task breakdown (first active project) ────────────────────────── */}
+      {/* Task breakdown */}
       {projects.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -373,15 +351,11 @@ export default function DashboardPage() {
                   .map((project) => (
                     <Box key={project._id}>
                       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            '&:hover': { color: 'primary.main' },
-                          }}
-                          onClick={() => navigate(`/projects/${project._id}`)}
-                        >
+                        <Typography variant="body2" sx={{
+                          fontWeight: 600, cursor: 'pointer',
+                          '&:hover': { color: 'primary.main' },
+                        }}
+                          onClick={() => navigate(`/projects/${project._id}`)}>
                           {project.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
