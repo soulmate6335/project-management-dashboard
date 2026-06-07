@@ -28,7 +28,7 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 15_000,
   headers: {
     'Content-Type': 'application/json',
-    Accept:         'application/json',
+    Accept: 'application/json',
   },
 });
 
@@ -38,9 +38,11 @@ export const apiClient: AxiosInstance = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('auth_token');
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -54,31 +56,38 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Token expired — attempt one silent refresh then retry
     if (
       error.response?.status === 401 &&
-      !originalRequest._retried &&
+      !originalRequest?._retried &&
       localStorage.getItem('auth_token')
     ) {
       originalRequest._retried = true;
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        const { data } = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, {
-          refreshToken,
-        });
+
+        const { data } = await axios.post(
+          `${BASE_URL}/api/v1/auth/refresh`,
+          { refreshToken }
+        );
 
         const newToken = data.data?.token;
+
         if (newToken) {
           localStorage.setItem('auth_token', newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+          originalRequest.headers.Authorization =
+            `Bearer ${newToken}`;
+
           return apiClient(originalRequest);
         }
       } catch {
-        // Refresh failed — clear storage and let the Redux auth guard handle redirect
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
-        window.dispatchEvent(new Event('auth:logout'));
+
+        window.dispatchEvent(
+          new Event('auth:logout')
+        );
       }
     }
 
@@ -89,6 +98,13 @@ apiClient.interceptors.response.use(
 // ---------------------------------------------------------------------------
 // Convenience extractor — unwraps { success, data } envelope
 // ---------------------------------------------------------------------------
-export function unwrap<T>(response: AxiosResponse<ApiSuccess<T>>): T {
+export function unwrap<T>(
+  response: AxiosResponse<ApiSuccess<T>>
+): T {
   return response.data.data;
 }
+
+// ---------------------------------------------------------------------------
+// Default export
+// ---------------------------------------------------------------------------
+export default apiClient;
