@@ -258,7 +258,6 @@ function ProjectCard({
       </CardActionArea>
 
       <Divider />
-      // Inside CardActions in ProjectCard — add this button:
 <CardActions sx={{ px: 2, py: 0.75, justifyContent: 'space-between' }}>
   <Typography variant="caption" color="text.secondary" noWrap>
     {project.owner.name}
