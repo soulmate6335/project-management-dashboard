@@ -50,8 +50,8 @@ export default function AuthLayout() {
               📋
             </Box>
 
-            <Typography variant="h3" gutterBottom sx={{ fontWeight: 700, letterSpacing: '-0.5px' }}>
-              Project Hub
+            <Typography variant="h3" gutterBottom sx={{ fontWeight: 600, letterSpacing: '-0.5px' }}>
+              YOUR PROJECT MANAGEMENT HUB
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.8, maxWidth: 320, mx: 'auto', lineHeight: 1.7 }}>
               Manage projects, collaborate in real time, and ship faster — all in one place.
@@ -96,7 +96,7 @@ export default function AuthLayout() {
         }}>
           {isMobile && (
             <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>📋 Project Hub</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>📋 YOUR PROJECT MANAGEMENT HUB</Typography>
             </Box>
           )}
           <Outlet />

@@ -87,7 +87,7 @@ export default function LoginPage() {
           <LockOutlinedIcon sx={{ color: 'white', fontSize: 24 }} />
         </Box>
         <Typography variant="h4" sx={{ letterSpacing: '-0.5px', fontWeight: 700 }}>
-          Welcome back
+         WELCOME BACK
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           Sign in to continue to your workspace

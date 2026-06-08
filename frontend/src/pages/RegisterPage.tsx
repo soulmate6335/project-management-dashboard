@@ -1,6 +1,6 @@
 // src/pages/RegisterPage.tsx [FRONTEND]
 import { useEffect, useState } from 'react';
-import { useForm }             from 'react-hook-form';
+import { useForm, useWatch }   from 'react-hook-form';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, Collapse, Divider,
@@ -56,14 +56,14 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
     mode: 'onTouched',
   });
 
-  const passwordValue = watch('password');
+  const passwordValue = useWatch({ control, name: 'password' });
 
   const onSubmit = async (values: RegisterFormValues) => {
     const result = await dispatch(
@@ -93,10 +93,10 @@ export default function RegisterPage() {
           <PersonAddOutlinedIcon sx={{ color: 'white', fontSize: 24 }} />
         </Box>
         <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.5px' }}>
-          Create an account
+          CREATE ACCOUNT
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Get started — it's free. No credit card required.
+          Welcome! Please enter your details to create a new account.
         </Typography>
       </Box>
 
@@ -265,7 +265,7 @@ export default function RegisterPage() {
           py: 1.2,
         }}
       >
-        Sign in instead
+        Sign in to your account
       </Button>
     </Box>
   );
