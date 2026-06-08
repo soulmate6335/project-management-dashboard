@@ -93,7 +93,7 @@ The application provides project tracking, task management, role-based access co
 ## 📂 Project Structure
 
 ```
-project-hub/
+project-management-dashboard/
 │
 ├── frontend/
 │   ├── src/
@@ -155,8 +155,8 @@ Done
 ### Clone Repository
 
 ```bash
-git clone https://github.com//project-hub.git
-cd project-hub
+git clone https://github.com/soulmate6335/project-management-dashboard.git
+cd project-management-dashboard
 ```
 
 ---
@@ -186,7 +186,7 @@ CLIENT_URL=http://localhost:5173
 
 JWT_SECRET=your_jwt_secret
 
-MONGODB_URI=your_mongodb_connection_string
+MONGODB_URI=mongodb://admin:1234567890@ac-l0tv3zh-shard-00-00.nskiplq.mongodb.net:27017,ac-l0tv3zh-shard-00-01.nskiplq.mongodb.net:27017,ac-l0tv3zh-shard-00-02.nskiplq.mongodb.net:27017/projecthub?ssl=true&replicaSet=atlas-chwkqx-shard-0&authSource=admin&retryWrites=true&w=majority
 ```
 
 Start backend:
@@ -255,6 +255,41 @@ PATCH  /api/projects/:projectId/tasks/:id
 DELETE /api/projects/:projectId/tasks/:id
 PATCH  /api/projects/:projectId/tasks/reorder
 ```
+
+
+Environment Variables
+
+## Backend `.env`
+
+```env
+PORT=5000
+NODE_ENV=production
+
+MONGO_URI=your_mongodb_connection_string
+
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=7d
+
+CLIENT_URL=https://https://project-management-dashboard-nu.vercel.app/
+
+
+🖥️ Frontend (Vercel)
+
+https://project-management-dashboard-nu.vercel.app/
+⚙️ Backend (Render)
+
+https://project-management-dashboard-dyy4.onrender.com
+
+
+Known Limitations / Improvements
+
+    Database schema is implemented but not formally documented
+    Frontend authentication rehydration can be improved
+    Full production monitoring not implemented
+    Minor polish needed in deployment configuration
+
+
+
 
 ---
 
