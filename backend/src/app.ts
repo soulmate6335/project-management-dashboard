@@ -104,6 +104,12 @@ export function createApp(): Application {
   // (wired in server.ts after Socket.io is instantiated)
 
   // ── Health check ──────────────────────────────────────────────────────────
+  app.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ProjectHub API running',
+  });
+});
+
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({
       success: true,
