@@ -10,7 +10,6 @@ import {
 import MenuIcon          from '@mui/icons-material/Menu';
 import DashboardIcon     from '@mui/icons-material/Dashboard';
 import FolderIcon        from '@mui/icons-material/Folder';
-// TaskAltIcon removed: unused import
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChevronLeftIcon   from '@mui/icons-material/ChevronLeft';
 import LogoutIcon        from '@mui/icons-material/Logout';
@@ -19,7 +18,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { logout, selectCurrentUser }      from '../features/auth/store/authSlice';
 import { useSocketConnection }            from '../hooks/useSocket';
-import { ROUTES }                         from '../routes/routes';
+import { ROUTES }                         from '../routes/AppRoutes'; // ✅ fixed
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -42,7 +41,6 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const currentUser = useAppSelector(selectCurrentUser);
 
-  // ✅ Socket.io connected for all authenticated pages
   useSocketConnection();
 
   const [sidebarOpen,      setSidebarOpen]      = useState(!isMobile);
@@ -270,7 +268,6 @@ export default function DashboardLayout() {
               </IconButton>
             </Tooltip>
 
-            {/* ✅ Fixed: PaperProps → slotProps for MUI v9 */}
             <Menu
               anchorEl={userMenuAnchor}
               open={Boolean(userMenuAnchor)}
