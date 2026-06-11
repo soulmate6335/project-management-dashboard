@@ -7,9 +7,9 @@ import { selectAuthLoading, selectIsAuthenticated } from '../features/auth/store
 import AuthLayout                  from '../layouts/AuthLayout';
 import DashboardLayout             from '../layouts/DashboardLayout';
 import ProtectedRoute              from './ProtectedRoute';
-import { ROUTES }                  from './routes'; // ✅ import from routes.ts
+import { ROUTES }                  from './routes';
 
-export { ROUTES } from './routes'; // ✅ re-export so other files still work
+export { ROUTES } from './routes';
 
 const LoginPage          = lazy(() => import('../pages/LoginPage'));
 const RegisterPage       = lazy(() => import('../pages/RegisterPage'));
@@ -18,6 +18,7 @@ const ProjectsPage       = lazy(() => import('../pages/ProjectsPage'));
 const TasksPage          = lazy(() => import('../pages/TasksPage'));
 const NotFoundPage       = lazy(() => import('../pages/NotFoundPage'));
 const ForgotPasswordPage = lazy(() => import('../pages/ForgotPasswordPage'));
+const ProfilePage        = lazy(() => import('../pages/ProfilePage'));
 
 function PageLoader() {
   return (
@@ -54,6 +55,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path={ROUTES.ROOT} element={<Navigate to={ROUTES.DASHBOARD} replace />} />
 
+        {/* Public routes */}
         <Route element={<PublicOnlyRoute />}>
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.LOGIN}           element={<LoginPage />} />
@@ -62,12 +64,14 @@ export default function AppRoutes() {
           </Route>
         </Route>
 
+        {/* Protected routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.DASHBOARD}      element={<DashboardPage />} />
             <Route path={ROUTES.PROJECTS}       element={<ProjectsPage />} />
             <Route path={ROUTES.PROJECT_DETAIL} element={<ProjectsPage />} />
             <Route path={ROUTES.TASKS}          element={<TasksPage />} />
+            <Route path="/profile"             element={<ProfilePage />} />
           </Route>
         </Route>
 
@@ -76,3 +80,9 @@ export default function AppRoutes() {
     </Suspense>
   );
 }
+
+
+
+
+
+

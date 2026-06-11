@@ -251,7 +251,7 @@ export default function DashboardLayout() {
 
             <Tooltip title="Notifications">
               <IconButton sx={{ mr: 1 }}>
-                <Badge badgeContent={3} color="error">
+                <Badge badgeContent={0} color="error" showZero={false}>
                   <NotificationsIcon />
                 </Badge>
               </IconButton>

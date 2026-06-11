@@ -4,10 +4,11 @@ import { createRoot }  from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider }    from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { Toaster }     from 'react-hot-toast';
-import { store }       from './store/store';
-import AppWrapper      from './AppWrapper';
+
+import { store }           from './store/store';
+import { AppThemeProvider } from './context/ThemeContext';
+import AppWrapper          from './AppWrapper';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,23 +24,6 @@ const queryClient = new QueryClient({
   },
 });
 
-const theme = createTheme({
-  palette: {
-    primary:    { main: '#2563eb' },
-    secondary:  { main: '#7c3aed' },
-    background: { default: '#f8fafc', paper: '#ffffff' },
-  },
-  shape: { borderRadius: 8 },
-  typography: { fontFamily: '"Inter", "system-ui", sans-serif' },
-  components: {
-    MuiButton: {
-      defaultProps:   { disableElevation: true },
-      styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } },
-    },
-    MuiPaper: { defaultProps: { elevation: 0 } },
-  },
-});
-
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element #root not found');
 
@@ -47,8 +31,7 @@ createRoot(container).render(
   <StrictMode>
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
+        <AppThemeProvider>
           <BrowserRouter>
             <AppWrapper />
           </BrowserRouter>
@@ -62,7 +45,7 @@ createRoot(container).render(
               error:   { duration: 6000 },
             }}
           />
-        </ThemeProvider>
+        </AppThemeProvider>
       </QueryClientProvider>
     </Provider>
   </StrictMode>

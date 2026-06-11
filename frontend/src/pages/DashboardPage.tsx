@@ -1,554 +1,371 @@
-// src/pages/DashboardPage.tsx [FRONTEND]
-import { useMemo }       from 'react';
-import { useNavigate }   from 'react-router-dom';
+// src/layouts/DashboardLayout.tsx [FRONTEND]
+import { useState, useCallback } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Alert, Avatar, AvatarGroup, Box, Button, Card, CardActionArea,
-  CardContent, Chip, Divider, Grid, LinearProgress, Skeleton,
-  Stack, Typography, Paper,
+  Box, Drawer, AppBar, Toolbar, Typography, IconButton,
+  List, ListItem, ListItemButton, ListItemIcon, ListItemText,
+  Avatar, Menu, MenuItem, Divider, Tooltip, Badge,
+  useTheme, useMediaQuery,
 } from '@mui/material';
-import FolderIcon         from '@mui/icons-material/Folder';
-import TaskAltIcon        from '@mui/icons-material/TaskAlt';
-import TrendingUpIcon     from '@mui/icons-material/TrendingUp';
-import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
-import AddIcon            from '@mui/icons-material/Add';
-import ArrowForwardIcon   from '@mui/icons-material/ArrowForward';
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import MenuIcon          from '@mui/icons-material/Menu';
+import DashboardIcon     from '@mui/icons-material/Dashboard';
+import FolderIcon        from '@mui/icons-material/Folder';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import ChevronLeftIcon   from '@mui/icons-material/ChevronLeft';
+import LogoutIcon        from '@mui/icons-material/Logout';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import DarkModeIcon      from '@mui/icons-material/DarkMode';
+import LightModeIcon     from '@mui/icons-material/LightMode';
 
-import { useProjects }    from '../hooks/useProjects';
-import { useTaskSummary } from '../hooks/useTasks';
-import { useAppSelector } from '../app/hooks';
-import { selectCurrentUser } from '../features/auth/store/authSlice';
-import type { Project }   from '../types';
-import { ROUTES }         from '../routes/AppRoutes';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
-}
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function progressColor(value: number): 'error' | 'warning' | 'info' | 'success' {
-  if (value < 25) return 'error';
-  if (value < 50) return 'warning';
-  if (value < 75) return 'info';
-  return 'success';
-}
-
-function getInitials(name: string): string {
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-}
+import { useAppDispatch, useAppSelector } from '../app/hooks';
+import { logout, selectCurrentUser }      from '../features/auth/store/authSlice';
+import { useSocketConnection }            from '../hooks/useSocket';
+import { useThemeMode }                   from '../context/ThemeContext';
+import { ROUTES }                         from '../routes/AppRoutes';
 
 // ---------------------------------------------------------------------------
-// StatCard
+// Constants
 // ---------------------------------------------------------------------------
-interface StatCardProps {
-  label:   string;
-  value:   number | string;
-  icon:    React.ReactNode;
-  color:   string;
-  bgColor: string;
-  loading?: boolean;
-  sub?:    string;
-  trend?:  string;
-}
+const DRAWER_WIDTH           = 240;
+const DRAWER_COLLAPSED_WIDTH = 64;
 
-function StatCard({ label, value, icon, color, bgColor, loading, sub, trend }: StatCardProps) {
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 3,
-        height: '100%',
-        border: '1px solid',
-        borderColor: 'divider',
-        transition: 'box-shadow 0.2s, transform 0.2s',
-        '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' },
-      }}
-    >
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-          <Box
-            sx={{
-              width: 52, height: 52, borderRadius: 2.5,
-              bgcolor: bgColor,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color,
-            }}
-          >
-            {icon}
-          </Box>
-          {trend && (
-            <Chip
-              label={trend}
-              size="small"
-              sx={{
-                bgcolor: '#f0fdf4', color: '#16a34a',
-                fontWeight: 700, fontSize: '0.7rem', height: 22,
-              }}
-            />
-          )}
-        </Box>
-
-        {loading ? (
-          <>
-            <Skeleton variant="text" width={80} height={44} />
-            <Skeleton variant="text" width={120} height={20} />
-          </>
-        ) : (
-          <>
-            <Typography variant="h3" sx={{ lineHeight: 1.1, mb: 0.5, fontWeight: 800 }}>
-              {value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-              {label}
-            </Typography>
-            {sub && (
-              <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
-                {sub}
-              </Typography>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+const NAV_ITEMS = [
+  { label: 'Dashboard', icon: <DashboardIcon />, to: ROUTES.DASHBOARD },
+  { label: 'Projects',  icon: <FolderIcon />,    to: ROUTES.PROJECTS  },
+] as const;
 
 // ---------------------------------------------------------------------------
-// RecentProjectCard
+// DashboardLayout
 // ---------------------------------------------------------------------------
-function RecentProjectCard({ project }: { project: Project }) {
-  const navigate = useNavigate();
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.2s',
-        '&:hover': { boxShadow: 4, borderColor: 'primary.main', transform: 'translateY(-2px)' },
-      }}
-    >
-      <CardActionArea onClick={() => navigate(`/projects/${project._id}`)} sx={{ p: 0 }}>
-        <CardContent sx={{ p: 2.5 }}>
-          {/* Header */}
-          <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 2 }}>
-            <Stack direction="row" sx={{ alignItems: 'center', spacing: 1.5, minWidth: 0 }}>
-              <Box sx={{
-                width: 40, height: 40, borderRadius: 2,
-                bgcolor: '#eff6ff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <FolderIcon sx={{ fontSize: 20, color: 'primary.main' }} />
-              </Box>
-              <Typography variant="subtitle2" sx={{
-                fontWeight: 700,
-                overflow: 'hidden', display: '-webkit-box',
-                WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
-              }}>
-                {project.name}
-              </Typography>
-            </Stack>
-            <Chip
-              label={project.status}
-              size="small"
-              color={project.status === 'active' ? 'success' : 'default'}
-              sx={{ flexShrink: 0, textTransform: 'capitalize', fontWeight: 600, fontSize: '0.65rem' }}
-            />
-          </Stack>
-
-          {/* Progress */}
-          <Box sx={{ mb: 2 }}>
-            <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.75 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                Progress
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 700,
-                  color:
-                    project.progress >= 75 ? 'success.main' :
-                    project.progress >= 50 ? 'info.main' :
-                    project.progress >= 25 ? 'warning.main' : 'error.main',
-                }}
-              >
-                {project.progress}%
-              </Typography>
-            </Stack>
-            <LinearProgress
-              variant="determinate"
-              value={project.progress}
-              color={progressColor(project.progress)}
-              sx={{ height: 6, borderRadius: 3 }}
-            />
-          </Box>
-
-          {/* Footer */}
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: 10, border: '2px solid white' } }}>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 24, height: 24, fontSize: 10 }}>
-                {getInitials(project.owner.name)}
-              </Avatar>
-              {project.members.slice(0, 2).map((m) => (
-                <Avatar key={m.user._id} sx={{ bgcolor: 'secondary.main', width: 24, height: 24, fontSize: 10 }}>
-                  {getInitials(m.user.name)}
-                </Avatar>
-              ))}
-            </AvatarGroup>
-            <Typography variant="caption" color="text.disabled">
-              {formatDate(project.updatedAt)}
-            </Typography>
-          </Stack>
-        </CardContent>
-      </CardActionArea>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// TaskSummarySection
-// ---------------------------------------------------------------------------
-function TaskSummarySection({ projectId }: { projectId: string }) {
-  const { data: summary, isLoading } = useTaskSummary(projectId);
-
-  if (isLoading) return <Skeleton variant="rectangular" height={8} sx={{ borderRadius: 2 }} />;
-  if (!summary)  return null;
-
-  const total = Object.values(summary).reduce((a, b) => a + b, 0);
-  if (total === 0) return (
-    <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-      No tasks yet
-    </Typography>
-  );
-
-  const segments = [
-    { key: 'done',        color: '#22c55e', label: 'Done' },
-    { key: 'in_review',   color: '#3b82f6', label: 'In Review' },
-    { key: 'in_progress', color: '#f59e0b', label: 'In Progress' },
-    { key: 'todo',        color: '#94a3b8', label: 'To Do' },
-  ] as const;
-
-  return (
-    <Stack spacing={1}>
-      {/* Stacked bar */}
-      <Stack direction="row" sx={{ height: 8, borderRadius: 4, overflow: 'hidden', gap: '2px' }}>
-        {segments.map(({ key, color }) => {
-          const count = summary[key] ?? 0;
-          const pct   = total > 0 ? (count / total) * 100 : 0;
-          return pct > 0 ? (
-            <Box key={key} sx={{ width: `${pct}%`, bgcolor: color }} />
-          ) : null;
-        })}
-      </Stack>
-      {/* Legend */}
-      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-        {segments.map(({ key, color, label }) => {
-          const count = summary[key] ?? 0;
-          return count > 0 ? (
-            <Box
-              key={key}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              <FiberManualRecordIcon sx={{ fontSize: 8, color }} />
-              <Typography variant="caption" color="text.secondary">
-                {label} <strong>{count}</strong>
-              </Typography>
-            </Box>
-          ) : null;
-        })}
-      </Stack>
-    </Stack>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DashboardPage
-// ---------------------------------------------------------------------------
-export default function DashboardPage() {
+export default function DashboardLayout() {
+  const theme       = useTheme();
+  const isMobile    = useMediaQuery(theme.breakpoints.down('md'));
+  const dispatch    = useAppDispatch();
   const navigate    = useNavigate();
   const currentUser = useAppSelector(selectCurrentUser);
+  const { mode, toggleMode } = useThemeMode();
 
-  const { data: projectsData, isLoading: projectsLoading, isError } =
-    useProjects({ limit: 6, sortBy: 'updatedAt', sortDir: 'desc' });
+  useSocketConnection();
 
-  const projects      = useMemo(() => projectsData?.data  ?? [], [projectsData]);
-  const totalProjects = projectsData?.meta?.total ?? 0;
+  const [sidebarOpen,      setSidebarOpen]      = useState(!isMobile);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [userMenuAnchor,   setUserMenuAnchor]   = useState<null | HTMLElement>(null);
 
-  const stats = useMemo(() => {
-    const active      = projects.filter((p) => p.status === 'active').length;
-    const archived    = projects.filter((p) => p.status === 'archived').length;
-    const avgProgress = projects.length
-      ? Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / projects.length)
-      : 0;
-    const completed   = projects.filter((p) => p.progress === 100).length;
-    return { active, archived, avgProgress, completed };
-  }, [projects]);
+  const handleToggleSidebar = useCallback(() => {
+    if (isMobile) setMobileDrawerOpen((p) => !p);
+    else          setSidebarOpen((p) => !p);
+  }, [isMobile]);
 
-  return (
-    <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
+  const handleLogout = useCallback(() => {
+    dispatch(logout());
+    navigate(ROUTES.LOGIN, { replace: true });
+  }, [dispatch, navigate]);
 
-      {/* ── Hero greeting ─────────────────────────────────────────────── */}
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 4,
-          background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-          color: 'white',
-          p: { xs: 3, md: 4 },
-          mb: 4,
-          position: 'relative',
-          overflow: 'hidden',
+  const handleProfile = useCallback(() => {
+    setUserMenuAnchor(null);
+    navigate('/profile');
+  }, [navigate]);
+
+  const drawerWidth = sidebarOpen ? DRAWER_WIDTH : DRAWER_COLLAPSED_WIDTH;
+
+  // ── Sidebar content ──────────────────────────────────────────────────────
+  const SidebarContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+      {/* Logo row */}
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: sidebarOpen ? 'space-between' : 'center',
+        px: sidebarOpen ? 2 : 1,
+        py: 1.5,
+        minHeight: 64,
+      }}>
+        {sidebarOpen && (
+          <Typography variant="h6" noWrap sx={{ fontWeight: 700, letterSpacing: '-0.3px' }}>
+            📋 Project Hub
+          </Typography>
+        )}
+        {!isMobile && (
+          <Tooltip title={sidebarOpen ? 'Collapse' : 'Expand'} placement="right">
+            <IconButton size="small" onClick={handleToggleSidebar}>
+              <ChevronLeftIcon sx={{
+                transform: sidebarOpen ? 'rotate(0deg)' : 'rotate(180deg)',
+                transition: 'transform 0.2s ease',
+              }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
+
+      <Divider />
+
+      {/* Nav items */}
+      <List sx={{ px: 1, py: 1.5, flex: 1 }}>
+        {NAV_ITEMS.map(({ label, icon, to }) => (
+          <ListItem key={label} disablePadding sx={{ mb: 0.5 }}>
+            <Tooltip title={!sidebarOpen ? label : ''} placement="right">
+              <ListItemButton
+                component={NavLink}
+                to={to}
+                end={to === ROUTES.DASHBOARD}
+                onClick={() => isMobile && setMobileDrawerOpen(false)}
+                sx={{
+                  borderRadius: 2,
+                  minHeight: 44,
+                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
+                  px: sidebarOpen ? 1.5 : 1,
+                  '&.active': {
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                    '&:hover': { bgcolor: 'primary.dark' },
+                  },
+                  '&:not(.active):hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <ListItemIcon sx={{
+                  minWidth: 0,
+                  mr: sidebarOpen ? 1.5 : 0,
+                  justifyContent: 'center',
+                }}>
+                  {icon}
+                </ListItemIcon>
+                {sidebarOpen && (
+                  <ListItemText
+                    primary={
+                      <Typography component="span" sx={{ fontWeight: 500 }}>
+                        {label}
+                      </Typography>
+                    }
+                  />
+                )}
+              </ListItemButton>
+            </Tooltip>
+          </ListItem>
+        ))}
+      </List>
+
+      {/* Bottom user strip */}
+      <Divider />
+      <Box sx={{
+        px: sidebarOpen ? 2 : 1,
+        py: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        overflow: 'hidden',
+      }}>
+        <Avatar sx={{
+          width: 32, height: 32,
+          fontSize: 14, bgcolor: 'primary.main', flexShrink: 0,
+          cursor: 'pointer',
         }}
-      >
-        {/* Decorative circles */}
-        <Box sx={{
-          position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-          bgcolor: 'rgba(255,255,255,0.05)', top: -100, right: -50,
-        }} />
-        <Box sx={{
-          position: 'absolute', width: 200, height: 200, borderRadius: '50%',
-          bgcolor: 'rgba(255,255,255,0.05)', bottom: -80, right: 100,
-        }} />
-
-        <Stack 
-          sx={{
-            direction: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            justifyContent: 'space-between',
-          }}
-          spacing={2}>
-          <Box>
-            <Typography variant="h4" sx={{ letterSpacing: '-0.5px', fontWeight: 800 }}>
-              {getGreeting()}, {currentUser?.name?.split(' ')[0] ?? 'there'} 👋
+          onClick={handleProfile}
+        >
+          {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
+        </Avatar>
+        {sidebarOpen && (
+          <Box sx={{ overflow: 'hidden' }}>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+              {currentUser?.name ?? 'User'}
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.85, mt: 0.5 }}>
-              Here's an overview of your workspace today.
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {currentUser?.email ?? ''}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate(ROUTES.PROJECTS)}
-            sx={{
-              bgcolor: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(10px)',
-              color: 'white',
-              fontWeight: 600,
-              border: '1px solid rgba(255,255,255,0.3)',
-              whiteSpace: 'nowrap',
-              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
-            }}
-          >
-            New Project
-          </Button>
-        </Stack>
-      </Paper>
+        )}
+      </Box>
+    </Box>
+  );
 
-      {isError && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-          Failed to load dashboard data. Please refresh the page.
-        </Alert>
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+
+      {/* Desktop permanent sidebar */}
+      {!isMobile && (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              overflowX: 'hidden',
+              transition: theme.transitions.create('width', {
+                easing:   theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              boxSizing: 'border-box',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+            },
+          }}
+        >
+          {SidebarContent}
+        </Drawer>
       )}
 
-      {/* ── Stat cards ─────────────────────────────────────────────────── */}
-      <Grid container spacing={2.5} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <StatCard
-            label="Total Projects"
-            value={projectsLoading ? '—' : totalProjects}
-            icon={<FolderIcon fontSize="medium" />}
-            color="#2563eb" bgColor="#eff6ff"
-            loading={projectsLoading}
-            sub={`${stats.active} active · ${stats.archived} archived`}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <StatCard
-            label="Active Projects"
-            value={projectsLoading ? '—' : stats.active}
-            icon={<TrendingUpIcon fontSize="medium" />}
-            color="#f59e0b" bgColor="#fffbeb"
-            loading={projectsLoading}
-            sub="Currently in progress"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <StatCard
-            label="Avg. Progress"
-            value={projectsLoading ? '—' : `${stats.avgProgress}%`}
-            icon={<TaskAltIcon fontSize="medium" />}
-            color="#7c3aed" bgColor="#f5f3ff"
-            loading={projectsLoading}
-            sub="Across all projects"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <StatCard
-            label="Completed"
-            value={projectsLoading ? '—' : stats.completed}
-            icon={<CheckCircleIcon fontSize="medium" />}
-            color="#16a34a" bgColor="#f0fdf4"
-            loading={projectsLoading}
-            sub="Projects at 100%"
-            trend={stats.completed > 0 ? `${stats.completed} done` : undefined}
-          />
-        </Grid>
-      </Grid>
+      {/* Mobile temporary drawer */}
+      {isMobile && (
+        <Drawer
+          variant="temporary"
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+            },
+          }}
+        >
+          {SidebarContent}
+        </Drawer>
+      )}
 
-      {/* ── Recent projects + Task breakdown ──────────────────────────── */}
-      <Grid container spacing={3}>
+      {/* Main column */}
+      <Box component="main" sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        transition: theme.transitions.create('margin', {
+          easing:   theme.transitions.easing.sharp,
+          duration: theme.transitions.duration.leavingScreen,
+        }),
+      }}>
 
-        {/* Recent projects */}
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Recent Projects</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Your most recently updated projects
-              </Typography>
-            </Box>
-            <Button
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => navigate(ROUTES.PROJECTS)}
-              sx={{ fontWeight: 600 }}
-            >
-              View all
-            </Button>
-          </Stack>
-
-          {projectsLoading ? (
-            <Grid container spacing={2}>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Grid size={{ xs: 12, sm: 6 }} key={i}>
-                  <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
-                        <Skeleton variant="rounded" width={40} height={40} />
-                        <Box sx={{ flex: 1 }}>
-                          <Skeleton variant="text" width="70%" height={20} />
-                          <Skeleton variant="text" width="40%" height={16} />
-                        </Box>
-                      </Stack>
-                      <Skeleton variant="rectangular" height={6} sx={{ borderRadius: 3, mb: 1 }} />
-                      <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                        <Skeleton variant="circular" width={24} height={24} />
-                        <Skeleton variant="text" width={80} />
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : projects.length === 0 ? (
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ textAlign: 'center', py: 8 }}>
-                <Box sx={{
-                  width: 64, height: 64, borderRadius: 3,
-                  bgcolor: '#eff6ff', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2,
-                }}>
-                  <FolderIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700 }} gutterBottom>
-                  No projects yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Create your first project to get started
-                </Typography>
-                <Button variant="contained" startIcon={<AddIcon />}
-                  onClick={() => navigate(ROUTES.PROJECTS)}>
-                  Create Project
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <Grid container spacing={2}>
-              {projects.map((project) => (
-                <Grid size={{ xs: 12, sm: 6 }} key={project._id}>
-                  <RecentProjectCard project={project} />
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </Grid>
-
-        {/* Task breakdown */}
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Task Breakdown</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Status overview per project
-              </Typography>
-            </Box>
-          </Stack>
-
-          <Card variant="outlined" sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            {projects.length === 0 ? (
-              <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                <TaskAltIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                <Typography variant="body2" color="text.secondary">
-                  No active projects to show tasks for
-                </Typography>
-              </CardContent>
-            ) : (
-              <CardContent sx={{ p: 0 }}>
-                <Stack divider={<Divider />}>
-                  {projects
-                    .filter((p) => p.status === 'active')
-                    .slice(0, 5)
-                    .map((project) => (
-                      <Box
-                        key={project._id}
-                        sx={{
-                          px: 2.5, py: 2,
-                          cursor: 'pointer',
-                          transition: 'bgcolor 0.15s',
-                          '&:hover': { bgcolor: 'action.hover' },
-                        }}
-                        onClick={() => navigate(`/projects/${project._id}`)}
-                      >
-                        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2" sx={{
-                            fontWeight: 600,
-                            overflow: 'hidden', display: '-webkit-box',
-                            WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
-                            maxWidth: '70%',
-                          }}>
-                            {project.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.disabled">
-                            {formatDate(project.updatedAt)}
-                          </Typography>
-                        </Stack>
-                        <TaskSummarySection projectId={project._id} />
-                      </Box>
-                    ))}
-                </Stack>
-              </CardContent>
+        {/* AppBar */}
+        <AppBar
+          position="sticky"
+          elevation={0}
+          sx={{
+            bgcolor: 'background.paper',
+            color: 'text.primary',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            zIndex: (t) => t.zIndex.drawer - 1,
+          }}
+        >
+          <Toolbar>
+            {isMobile && (
+              <IconButton edge="start" onClick={handleToggleSidebar} sx={{ mr: 1.5 }}>
+                <MenuIcon />
+              </IconButton>
             )}
-          </Card>
-        </Grid>
 
-      </Grid>
+            <Typography variant="h6" noWrap sx={{ flex: 1, fontWeight: 600 }}>
+              Project Management Dashboard
+            </Typography>
+
+            {/* ✅ Dark mode toggle */}
+            <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+              <IconButton onClick={toggleMode} sx={{ mr: 0.5 }}>
+                {mode === 'light'
+                  ? <DarkModeIcon fontSize="small" />
+                  : <LightModeIcon fontSize="small" />
+                }
+              </IconButton>
+            </Tooltip>
+
+            {/* Notifications */}
+            <Tooltip title="Notifications">
+              <IconButton sx={{ mr: 0.5 }}>
+                <Badge badgeContent={3} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+
+            {/* Profile avatar */}
+            <Tooltip title="Account settings">
+              <IconButton
+                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                size="small"
+              >
+                <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 14 }}>
+                  {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
+
+            {/* User dropdown menu */}
+            <Menu
+              anchorEl={userMenuAnchor}
+              open={Boolean(userMenuAnchor)}
+              onClose={() => setUserMenuAnchor(null)}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              slotProps={{
+                paper: {
+                  elevation: 3,
+                  sx: { mt: 0.5, minWidth: 200, borderRadius: 2 },
+                },
+              }}
+            >
+              {/* User info */}
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {currentUser?.name ?? 'User'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {currentUser?.email ?? ''}
+                </Typography>
+              </Box>
+
+              <Divider />
+
+              {/* Profile */}
+              <MenuItem onClick={handleProfile} dense sx={{ py: 1 }}>
+                <ListItemIcon>
+                  <AccountCircleIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">Profile settings</Typography>
+              </MenuItem>
+
+              {/* Dark mode toggle inside menu */}
+              <MenuItem
+                dense
+                sx={{ py: 1 }}
+                onClick={() => { toggleMode(); setUserMenuAnchor(null); }}
+              >
+                <ListItemIcon>
+                  {mode === 'light'
+                    ? <DarkModeIcon fontSize="small" />
+                    : <LightModeIcon fontSize="small" />
+                  }
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {mode === 'light' ? 'Dark mode' : 'Light mode'}
+                </Typography>
+              </MenuItem>
+
+              <Divider />
+
+              {/* Sign out */}
+              <MenuItem
+                dense
+                sx={{ py: 1, color: 'error.main' }}
+                onClick={() => { setUserMenuAnchor(null); handleLogout(); }}
+              >
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                <Typography variant="body2" color="error.main">Sign out</Typography>
+              </MenuItem>
+            </Menu>
+          </Toolbar>
+        </AppBar>
+
+        {/* Page content */}
+        <Box sx={{ flex: 1, p: { xs: 2, sm: 3 }, overflow: 'auto' }}>
+          <Outlet />
+        </Box>
+
+      </Box>
     </Box>
   );
 }
