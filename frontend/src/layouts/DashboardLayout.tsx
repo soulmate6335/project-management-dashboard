@@ -14,11 +14,14 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChevronLeftIcon   from '@mui/icons-material/ChevronLeft';
 import LogoutIcon        from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import DarkModeIcon      from '@mui/icons-material/DarkMode';
+import LightModeIcon     from '@mui/icons-material/LightMode';
 
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { logout, selectCurrentUser }      from '../features/auth/store/authSlice';
-import { useSocketConnection }            from '../hooks/useSocket';
-import { ROUTES }                         from '../routes/AppRoutes'; // ✅ fixed
+//import { useSocketConnection }            from '../hooks/useSocket';
+import { useThemeMode }                   from '../context/ThemeContext';
+import { ROUTES }                         from '../routes/AppRoutes';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,17 +38,27 @@ const NAV_ITEMS = [
 // DashboardLayout
 // ---------------------------------------------------------------------------
 export default function DashboardLayout() {
-  const theme    = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  const theme       = useTheme();
+  const isMobile    = useMediaQuery(theme.breakpoints.down('md'));
+  const dispatch    = useAppDispatch();
+  const navigate    = useNavigate();
   const currentUser = useAppSelector(selectCurrentUser);
+  const { mode, toggleMode } = useThemeMode();
 
-  useSocketConnection();
+  // useSocketConnection();
 
   const [sidebarOpen,      setSidebarOpen]      = useState(!isMobile);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [userMenuAnchor,   setUserMenuAnchor]   = useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+const [notifications] = useState<
+  { id: number; message: string }[]
+>([
+  { id: 1, message: 'Welcome to Project Hub' },
+]);
+
+const [unreadCount] = useState(notifications.length);
 
   const handleToggleSidebar = useCallback(() => {
     if (isMobile) setMobileDrawerOpen((p) => !p);
@@ -56,6 +69,11 @@ export default function DashboardLayout() {
     dispatch(logout());
     navigate(ROUTES.LOGIN, { replace: true });
   }, [dispatch, navigate]);
+
+  const handleProfile = useCallback(() => {
+    setUserMenuAnchor(null);
+    navigate('/profile');
+  }, [navigate]);
 
   const drawerWidth = sidebarOpen ? DRAWER_WIDTH : DRAWER_COLLAPSED_WIDTH;
 
@@ -150,7 +168,10 @@ export default function DashboardLayout() {
         <Avatar sx={{
           width: 32, height: 32,
           fontSize: 14, bgcolor: 'primary.main', flexShrink: 0,
-        }}>
+          cursor: 'pointer',
+        }}
+          onClick={handleProfile}
+        >
           {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
         </Avatar>
         {sidebarOpen && (
@@ -249,14 +270,49 @@ export default function DashboardLayout() {
               Project Management Dashboard
             </Typography>
 
-            <Tooltip title="Notifications">
-              <IconButton sx={{ mr: 1 }}>
-                <Badge badgeContent={0} color="error" showZero={false}>
-                  <NotificationsIcon />
-                </Badge>
+            {/* ✅ Dark mode toggle */}
+            <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+              <IconButton onClick={toggleMode} sx={{ mr: 0.5 }}>
+                {mode === 'light'
+                  ? <DarkModeIcon fontSize="small" />
+                  : <LightModeIcon fontSize="small" />
+                }
               </IconButton>
             </Tooltip>
 
+            {/* Notifications */}
+            <Tooltip title="Notifications">
+  <IconButton
+    sx={{ mr: 0.5 }}
+    onClick={(e) => setAnchorEl(e.currentTarget)}
+  >
+    <Badge
+      badgeContent={unreadCount}
+      color="error"
+      invisible={unreadCount === 0}
+    >
+      <NotificationsIcon />
+    </Badge>
+  </IconButton>
+</Tooltip>
+
+<Menu
+  anchorEl={anchorEl}
+  open={Boolean(anchorEl)}
+  onClose={() => setAnchorEl(null)}
+>
+  {notifications.length === 0 ? (
+    <MenuItem>No notifications</MenuItem>
+  ) : (
+    notifications.map((n) => (
+      <MenuItem key={n.id}>
+        {n.message}
+      </MenuItem>
+    ))
+  )}
+</Menu>
+
+            {/* Profile avatar */}
             <Tooltip title="Account settings">
               <IconButton
                 onClick={(e) => setUserMenuAnchor(e.currentTarget)}
@@ -268,6 +324,7 @@ export default function DashboardLayout() {
               </IconButton>
             </Tooltip>
 
+            {/* User dropdown menu */}
             <Menu
               anchorEl={userMenuAnchor}
               open={Boolean(userMenuAnchor)}
@@ -276,35 +333,60 @@ export default function DashboardLayout() {
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
               slotProps={{
                 paper: {
-                  elevation: 2,
-                  sx: { mt: 0.5, minWidth: 180, borderRadius: 2 },
+                  elevation: 3,
+                  sx: { mt: 0.5, minWidth: 200, borderRadius: 2 },
                 },
               }}
             >
+              {/* User info */}
               <Box sx={{ px: 2, py: 1.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
                   {currentUser?.name ?? 'User'}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {currentUser?.email ?? ''}
                 </Typography>
               </Box>
+
               <Divider />
-              <MenuItem onClick={() => setUserMenuAnchor(null)} dense>
+
+              {/* Profile */}
+              <MenuItem onClick={handleProfile} dense sx={{ py: 1 }}>
                 <ListItemIcon>
                   <AccountCircleIcon fontSize="small" />
                 </ListItemIcon>
-                Profile
+                <Typography variant="body2">Profile settings</Typography>
               </MenuItem>
+
+              {/* Dark mode toggle inside menu */}
               <MenuItem
                 dense
-                sx={{ color: 'error.main' }}
+                sx={{ py: 1 }}
+                onClick={() => { toggleMode(); setUserMenuAnchor(null); }}
+              >
+                <ListItemIcon>
+                  {mode === 'light'
+                    ? <DarkModeIcon fontSize="small" />
+                    : <LightModeIcon fontSize="small" />
+                  }
+                </ListItemIcon>
+                <Typography variant="body2">
+                  {mode === 'light' ? 'Dark mode' : 'Light mode'}
+                </Typography>
+              </MenuItem>
+
+              <Divider />
+
+              {/* Sign out */}
+              <MenuItem
+                dense
+                sx={{ py: 1, color: 'error.main' }}
                 onClick={() => { setUserMenuAnchor(null); handleLogout(); }}
               >
                 <ListItemIcon>
                   <LogoutIcon fontSize="small" color="error" />
                 </ListItemIcon>
-                Sign out
+                <Typography variant="body2" color="error.main">Sign out</Typography>
               </MenuItem>
             </Menu>
           </Toolbar>

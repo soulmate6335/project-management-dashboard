@@ -1,6 +1,6 @@
 // src/pages/ProfilePage.tsx [FRONTEND]
 import { useState } from 'react';
-import { useForm }  from 'react-hook-form';
+import { useForm, useWatch }  from 'react-hook-form';
 import {
   Alert, Avatar, Box, Button, Card, CardContent,
   CircularProgress, Collapse, Divider, Grid,
@@ -15,6 +15,8 @@ import BadgeIcon        from '@mui/icons-material/Badge';
 import { useAppSelector, useAppDispatch } from '../app/hooks';
 import { selectCurrentUser, setCredentials } from '../features/auth/store/authSlice';
 import { apiClient } from '../services/apiClient';
+
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,14 +62,14 @@ export default function ProfilePage() {
   const {
     register: regPassword,
     handleSubmit: handlePassword,
-    watch,
+    control,
     reset: resetPassword,
     formState: { errors: passwordErrors, isSubmitting: passwordSubmitting },
   } = useForm<PasswordFormValues>({
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   });
 
-  const newPasswordValue = watch('newPassword');
+  const newPasswordValue = useWatch({ control, name: 'newPassword' });
 
   // ── Submit profile ────────────────────────────────────────────────────
   const onProfileSubmit = async (values: ProfileFormValues) => {

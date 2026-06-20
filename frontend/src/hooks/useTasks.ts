@@ -1,4 +1,4 @@
-// src/hooks/useTasks.ts
+// src/hooks/useTasks.ts [FRONTEND]
 import {
   useQuery,
   useMutation,
@@ -11,6 +11,7 @@ import type {
   Task,
   CreateTaskPayload,
   UpdateTaskPayload,
+  TaskStatus,
   ListTasksParams,
   ReorderTasksPayload,
 } from '../types';
@@ -88,16 +89,12 @@ export function useCreateTask(projectId: string) {
       taskService.create(projectId, payload),
 
     onSuccess: (newTask) => {
-      // Invalidate all list variants for this project
       queryClient.invalidateQueries({ queryKey: taskKeys.lists(projectId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.summary(projectId) });
-
-      // Seed detail cache
       queryClient.setQueryData(
         taskKeys.detail(projectId, newTask._id),
         newTask
       );
-
       toast.success('Task created');
     },
 
@@ -108,7 +105,8 @@ export function useCreateTask(projectId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// useUpdateTask — with optimistic update
+// useUpdateTask — fixed to a single task, with optimistic update
+// Used by EditTaskDialog where the same task is being edited via a form.
 // ---------------------------------------------------------------------------
 export function useUpdateTask(projectId: string, taskId: string) {
   const queryClient = useQueryClient();
@@ -121,11 +119,9 @@ export function useUpdateTask(projectId: string, taskId: string) {
     onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: detailKey });
       const previous = queryClient.getQueryData<Task | undefined>(detailKey);
-
       queryClient.setQueryData<Task | undefined>(detailKey, (old) =>
         old ? ({ ...old, ...payload } as Task) : old
       );
-
       return { previous };
     },
 
@@ -139,9 +135,56 @@ export function useUpdateTask(projectId: string, taskId: string) {
     onSuccess: (updatedTask) => {
       queryClient.setQueryData(detailKey, updatedTask);
       queryClient.invalidateQueries({ queryKey: taskKeys.lists(projectId) });
-
       // If status changed, refresh the summary counts
       queryClient.invalidateQueries({ queryKey: taskKeys.summary(projectId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateTaskStatus — generic status update for drag-and-drop
+// Unlike useUpdateTask, this does NOT fix a taskId at hook-call time.
+// The drag handler can call mutate({ taskId, status }) for whichever
+// card was just dropped, without needing one hook instance per task.
+// ---------------------------------------------------------------------------
+export function useUpdateTaskStatus(projectId: string) {
+  const queryClient = useQueryClient();
+  const listKey     = taskKeys.lists(projectId);
+  const summaryKey  = taskKeys.summary(projectId);
+
+  return useMutation({
+    mutationFn: ({ taskId, status }: { taskId: string; status: TaskStatus }) =>
+      taskService.update(projectId, taskId, { status }),
+
+    onMutate: async ({ taskId, status }) => {
+      await queryClient.cancelQueries({ queryKey: listKey });
+      const previous = queryClient.getQueryData<{ data: Task[] }>(listKey);
+
+      // Optimistically move the card to its new column immediately,
+      // so the UI feels instant instead of waiting on the network.
+      queryClient.setQueryData<{ data: Task[] } | undefined>(listKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((t) =>
+            t._id === taskId ? { ...t, status } : t
+          ),
+        };
+      });
+
+      return { previous };
+    },
+
+    onError: (_err, _payload, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(listKey, context.previous);
+      }
+      toast.error('Failed to move task');
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: listKey });
+      queryClient.invalidateQueries({ queryKey: summaryKey });
     },
   });
 }
@@ -172,7 +215,7 @@ export function useDeleteTask(projectId: string) {
 
 // ---------------------------------------------------------------------------
 // useReorderTasks — silent mutation, no toast
-// Fires after every drag-and-drop drop event
+// Fires after every drag-and-drop drop event (within-column reordering)
 // ---------------------------------------------------------------------------
 export function useReorderTasks(projectId: string) {
   const queryClient = useQueryClient();
@@ -181,13 +224,11 @@ export function useReorderTasks(projectId: string) {
     mutationFn: (payload: ReorderTasksPayload) =>
       taskService.reorder(projectId, payload),
 
-    // Optimistically update the list order in cache immediately
     onMutate: async ({ tasks }) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.lists(projectId) });
 
       const orderMap = new Map(tasks.map(({ id, order }) => [id, order]));
 
-      // Update every cached list variant for this project
       queryClient.setQueriesData<{ data: Task[]; meta: unknown }>(
         { queryKey: taskKeys.lists(projectId) },
         (old) => {
@@ -205,7 +246,6 @@ export function useReorderTasks(projectId: string) {
     },
 
     onError: () => {
-      // On failure, refetch to restore server state
       queryClient.invalidateQueries({ queryKey: taskKeys.lists(projectId) });
       toast.error('Failed to save new order');
     },

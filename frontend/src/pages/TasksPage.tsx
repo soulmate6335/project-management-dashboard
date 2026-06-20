@@ -6,14 +6,26 @@ import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
   Dialog, DialogActions, DialogContent, DialogTitle, Divider,
   IconButton, MenuItem, Skeleton, Stack, TextField,
-  Tooltip, Typography,
+  Tooltip, Typography, LinearProgress,
 } from '@mui/material';
-import AddIcon      from '@mui/icons-material/Add';
-import DeleteIcon   from '@mui/icons-material/Delete';
-import EditIcon     from '@mui/icons-material/Edit';
-import FlagIcon     from '@mui/icons-material/Flag';
+import AddIcon               from '@mui/icons-material/Add';
+import DeleteIcon            from '@mui/icons-material/Delete';
+import EditIcon               from '@mui/icons-material/Edit';
+import FlagIcon                from '@mui/icons-material/Flag';
+import FiberManualRecordIcon   from '@mui/icons-material/FiberManualRecord';
+import DragIndicatorIcon       from '@mui/icons-material/DragIndicator';
 
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '../hooks/useTasks';
+import {
+  DndContext, useDraggable, useDroppable,
+  PointerSensor, TouchSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+
+import {
+  useTasks, useCreateTask, useUpdateTask, useDeleteTask, useTaskSummary,
+  useUpdateTaskStatus,
+} from '../hooks/useTasks';
 import { useProject } from '../hooks/useProjects';
 import type { Task, TaskStatus, TaskPriority, CreateTaskPayload, UpdateTaskPayload } from '../types';
 
@@ -35,12 +47,66 @@ const PRIORITY_COLORS: Record<TaskPriority, 'default' | 'warning' | 'error' | 'i
 };
 
 // ---------------------------------------------------------------------------
+// TaskSummaryBar
+// ---------------------------------------------------------------------------
+function TaskSummaryBar({ projectId }: { projectId: string }) {
+  const { data: summary, isLoading } = useTaskSummary(projectId);
+
+  if (isLoading) return <LinearProgress sx={{ height: 6, borderRadius: 3, mb: 3 }} />;
+  if (!summary)  return null;
+
+  const total = Object.values(summary).reduce((a, b) => a + b, 0);
+
+  if (total === 0) {
+    return (
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
+          No tasks yet — create one to see the summary
+        </Typography>
+      </Box>
+    );
+  }
+
+  const segments = [
+    { key: 'done',        color: '#22c55e', label: 'Done' },
+    { key: 'in_review',   color: '#3b82f6', label: 'In Review' },
+    { key: 'in_progress', color: '#f59e0b', label: 'In Progress' },
+    { key: 'todo',        color: '#94a3b8', label: 'To Do' },
+  ] as const;
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Stack direction="row" sx={{ height: 8, borderRadius: 4, overflow: 'hidden', gap: '2px', mb: 1 }}>
+        {segments.map(({ key, color }) => {
+          const count = summary[key] ?? 0;
+          const pct   = total > 0 ? (count / total) * 100 : 0;
+          return pct > 0 ? <Box key={key} sx={{ width: `${pct}%`, bgcolor: color }} /> : null;
+        })}
+      </Stack>
+      <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
+        {segments.map(({ key, color, label }) => {
+          const count = summary[key] ?? 0;
+          return (
+            <Stack key={key} direction="row" sx={{ alignItems: "center" }} spacing={0.5}>
+              <FiberManualRecordIcon sx={{ fontSize: 8, color }} />
+              <Typography variant="caption" color="text.secondary">
+                {label} <strong>{count}</strong>
+              </Typography>
+            </Stack>
+          );
+        })}
+      </Stack>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // CreateTaskDialog
 // ---------------------------------------------------------------------------
 interface CreateTaskDialogProps {
-  open:       boolean;
-  onClose:    () => void;
-  projectId:  string;
+  open:           boolean;
+  onClose:        () => void;
+  projectId:      string;
   defaultStatus?: TaskStatus;
 }
 
@@ -100,7 +166,7 @@ function CreateTaskDialog({ open, onClose, projectId, defaultStatus = 'todo' }: 
 }
 
 // ---------------------------------------------------------------------------
-// TaskCard
+// DraggableTaskCard — wraps TaskCard with dnd-kit drag behaviour
 // ---------------------------------------------------------------------------
 interface TaskCardProps {
   task:      Task;
@@ -108,74 +174,109 @@ interface TaskCardProps {
   onEdit:    (task: Task) => void;
 }
 
-function TaskCard({ task, projectId, onEdit }: TaskCardProps) {
+function DraggableTaskCard({ task, projectId, onEdit }: TaskCardProps) {
   const { mutate: deleteTask } = useDeleteTask(projectId);
 
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task._id,
+    data: { task },
+  });
+
+  const style = transform ? {
+    transform: CSS.Translate.toString(transform),
+    zIndex: 999,
+  } : undefined;
+
   return (
-    <Card variant="outlined" sx={{
-      borderRadius: 2, cursor: 'grab',
-      transition: 'box-shadow 0.15s',
-      '&:hover': { boxShadow: 3 },
-    }}>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      variant="outlined"
+      sx={{
+        borderRadius: 2,
+        opacity: isDragging ? 0.4 : 1,
+        transition: 'box-shadow 0.15s, opacity 0.15s',
+        '&:hover': { boxShadow: 3 },
+      }}
+    >
       <CardContent sx={{ p: '12px !important' }}>
-        <Typography variant="body2" sx={{
-          fontWeight: 600, mb: 1, overflow: 'hidden', display: '-webkit-box',
-          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-        }}>
-          {task.title}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+          {/* Drag handle — only this area starts a drag, so buttons below stay clickable */}
+          <Box
+            {...attributes}
+            {...listeners}
+            sx={{
+              cursor: 'grab',
+              touchAction: 'none',
+              pt: 0.25,
+              color: 'text.disabled',
+              '&:active': { cursor: 'grabbing' },
+            }}
+          >
+            <DragIndicatorIcon sx={{ fontSize: 18 }} />
+          </Box>
 
-        {task.description && (
-          <Typography variant="caption" color="text.secondary" sx={{
-            mb: 1, display: '-webkit-box', overflow: 'hidden',
-            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>
-            {task.description}
-          </Typography>
-        )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{
+              fontWeight: 600, mb: 1, overflow: 'hidden', display: '-webkit-box',
+              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            }}>
+              {task.title}
+            </Typography>
 
-        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Chip
-              label={task.priority}
-              size="small"
-              color={PRIORITY_COLORS[task.priority]}
-              icon={<FlagIcon style={{ fontSize: 12 }} />}
-              sx={{ textTransform: 'capitalize', fontWeight: 600, fontSize: '0.65rem', height: 20 }}
-            />
-            {task.isOverdue && (
-              <Chip label="Overdue" size="small" color="error"
-                sx={{ fontSize: '0.65rem', height: 20 }} />
+            {task.description && (
+              <Typography variant="caption" color="text.secondary" sx={{
+                mb: 1, display: '-webkit-box', overflow: 'hidden',
+                WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+              }}>
+                {task.description}
+              </Typography>
+            )}
+
+            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Chip
+                  label={task.priority}
+                  size="small"
+                  color={PRIORITY_COLORS[task.priority]}
+                  icon={<FlagIcon style={{ fontSize: 12 }} />}
+                  sx={{ textTransform: 'capitalize', fontWeight: 600, fontSize: '0.65rem', height: 20 }}
+                />
+                {task.isOverdue && (
+                  <Chip label="Overdue" size="small" color="error"
+                    sx={{ fontSize: '0.65rem', height: 20 }} />
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Tooltip title="Edit">
+                  <IconButton size="small" onClick={() => onEdit(task)}>
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton size="small" onClick={() => deleteTask(task._id)}
+                    sx={{ color: 'error.main' }}>
+                    <DeleteIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+
+            {task.assignee && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                Assigned: {task.assignee.name}
+              </Typography>
+            )}
+
+            {task.dueDate && (
+              <Typography variant="caption"
+                color={task.isOverdue ? 'error.main' : 'text.secondary'}
+                sx={{ display: 'block' }}>
+                Due: {new Date(task.dueDate).toLocaleDateString()}
+              </Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Tooltip title="Edit">
-              <IconButton size="small" onClick={() => onEdit(task)}>
-                <EditIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" onClick={() => deleteTask(task._id)}
-                sx={{ color: 'error.main' }}>
-                <DeleteIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
         </Box>
-
-        {task.assignee && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            Assigned: {task.assignee.name}
-          </Typography>
-        )}
-
-        {task.dueDate && (
-          <Typography variant="caption"
-            color={task.isOverdue ? 'error.main' : 'text.secondary'}
-            sx={{ display: 'block' }}>
-            Due: {new Date(task.dueDate).toLocaleDateString()}
-          </Typography>
-        )}
       </CardContent>
     </Card>
   );
@@ -202,8 +303,14 @@ function EditTaskDialog({ task, projectId, onClose }: EditTaskDialogProps) {
       },
     });
 
-  const onSubmit = (values: UpdateTaskPayload) => {
-    updateTask(values, { onSuccess: onClose });
+  const onSubmit = (values: { title: string; description: string; priority: TaskPriority; status: TaskStatus }) => {
+    const payload: UpdateTaskPayload = {
+      title:       values.title,
+      description: values.description,
+      priority:    values.priority,
+      status:      values.status,
+    };
+    updateTask(payload, { onSuccess: onClose });
   };
 
   return (
@@ -244,29 +351,37 @@ function EditTaskDialog({ task, projectId, onClose }: EditTaskDialogProps) {
 }
 
 // ---------------------------------------------------------------------------
-// KanbanColumn
+// DroppableColumn — wraps KanbanColumn with dnd-kit drop behaviour
 // ---------------------------------------------------------------------------
 interface KanbanColumnProps {
-  status:    TaskStatus;
-  label:     string;
-  color:     string;
-  tasks:     Task[];
-  loading:   boolean;
-  projectId: string;
+  status:     TaskStatus;
+  label:      string;
+  color:      string;
+  tasks:      Task[];
+  loading:    boolean;
+  projectId:  string;
   onAddClick: (status: TaskStatus) => void;
   onEditTask: (task: Task) => void;
 }
 
-function KanbanColumn({
+function DroppableColumn({
   status, label, color, tasks, loading, projectId, onAddClick, onEditTask,
 }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+
   return (
-    <Box sx={{
-      minWidth: 260, maxWidth: 300, flex: '1 1 260px',
-      bgcolor: 'action.hover', borderRadius: 3, p: 1.5,
-      display: 'flex', flexDirection: 'column', gap: 1,
-    }}>
-      {/* Column header */}
+    <Box
+      ref={setNodeRef}
+      sx={{
+        minWidth: 260, maxWidth: 300, flex: '1 1 260px',
+        bgcolor: isOver ? '#eff6ff' : 'action.hover',
+        border: '2px solid',
+        borderColor: isOver ? 'primary.main' : 'transparent',
+        borderRadius: 3, p: 1.5,
+        display: 'flex', flexDirection: 'column', gap: 1,
+        transition: 'background-color 0.15s, border-color 0.15s',
+      }}
+    >
       <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', px: 0.5, mb: 0.5 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: color }} />
@@ -283,14 +398,13 @@ function KanbanColumn({
 
       <Divider />
 
-      {/* Task cards */}
       <Stack spacing={1} sx={{ flex: 1, minHeight: 100 }}>
         {loading
           ? Array.from({ length: 2 }).map((_, i) => (
               <Skeleton key={i} variant="rectangular" height={80} sx={{ borderRadius: 2 }} />
             ))
           : tasks.map((task) => (
-              <TaskCard key={task._id} task={task} projectId={projectId} onEdit={onEditTask} />
+              <DraggableTaskCard key={task._id} task={task} projectId={projectId} onEdit={onEditTask} />
             ))
         }
         {!loading && tasks.length === 0 && (
@@ -298,7 +412,9 @@ function KanbanColumn({
             border: '2px dashed', borderColor: 'divider',
             borderRadius: 2, p: 2, textAlign: 'center',
           }}>
-            <Typography variant="caption" color="text.secondary">No tasks</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {isOver ? 'Drop here' : 'No tasks'}
+            </Typography>
           </Box>
         )}
       </Stack>
@@ -319,10 +435,33 @@ export default function TasksPage() {
   const { data: projectData } = useProject(pid);
   const { data, isLoading, isError } = useTasks(pid, { limit: 100, sortBy: 'order' });
 
+  // Generic status-update mutation — takes taskId at call time, so one hook
+  // instance can update whichever card was just dropped.
+  const { mutate: updateTaskStatus } = useUpdateTaskStatus(pid);
+
   const tasks = useMemo(() => data?.data ?? [], [data]);
 
   const tasksByStatus = useCallback((status: TaskStatus) =>
     tasks.filter((t) => t.status === status), [tasks]);
+
+  // dnd-kit sensors — PointerSensor for mouse, TouchSensor for mobile/tablet
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 5 } }),
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const task = active.data.current?.task as Task | undefined;
+    if (!task) return;
+
+    const newStatus = over.id as TaskStatus;
+    if (task.status === newStatus) return; // dropped back in same column — no-op
+
+    updateTaskStatus({ taskId: task._id, status: newStatus });
+  }, [updateTaskStatus]);
 
   if (!pid) {
     return (
@@ -334,14 +473,13 @@ export default function TasksPage() {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {projectData?.name ?? 'Tasks'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {tasks.length} task{tasks.length !== 1 ? 's' : ''} total
+            {tasks.length} task{tasks.length !== 1 ? 's' : ''} total · drag a card to change its status
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />}
@@ -350,31 +488,33 @@ export default function TasksPage() {
         </Button>
       </Box>
 
+      <TaskSummaryBar projectId={pid} />
+
       {isError && (
         <Alert severity="error" sx={{ mb: 2 }}>Failed to load tasks</Alert>
       )}
 
-      {/* Kanban board */}
-      <Box sx={{
-        display: 'flex', gap: 2, overflowX: 'auto',
-        pb: 2, alignItems: 'flex-start',
-      }}>
-        {COLUMNS.map(({ key, label, color }) => (
-          <KanbanColumn
-            key={key}
-            status={key}
-            label={label}
-            color={color}
-            tasks={tasksByStatus(key)}
-            loading={isLoading}
-            projectId={pid}
-            onAddClick={(s) => setCreateStatus(s)}
-            onEditTask={(t) => setEditTask(t)}
-          />
-        ))}
-      </Box>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <Box sx={{
+          display: 'flex', gap: 2, overflowX: 'auto',
+          pb: 2, alignItems: 'flex-start',
+        }}>
+          {COLUMNS.map(({ key, label, color }) => (
+            <DroppableColumn
+              key={key}
+              status={key}
+              label={label}
+              color={color}
+              tasks={tasksByStatus(key)}
+              loading={isLoading}
+              projectId={pid}
+              onAddClick={(s) => setCreateStatus(s)}
+              onEditTask={(t) => setEditTask(t)}
+            />
+          ))}
+        </Box>
+      </DndContext>
 
-      {/* Dialogs */}
       <CreateTaskDialog
         open={Boolean(createStatus)}
         onClose={() => setCreateStatus(null)}

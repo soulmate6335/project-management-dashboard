@@ -14,15 +14,7 @@ export default function ProtectedRoute() {
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          bgcolor: 'background.default',
-        }}
-      >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
         <CircularProgress size={48} thickness={3} />
       </Box>
     );
@@ -30,11 +22,7 @@ export default function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return (
-      <Navigate
-        to="/login"
-        state={{ from: location }}
-        replace
-      />
+      <Navigate to="/login" state={{ from: location }} replace />
     );
   }
 
