@@ -73,7 +73,5 @@ const userSchema = new Schema<IUser>(
 );
 
 // Indexes
-userSchema.index({ email: 1 }, { unique: true });
-
 const User = model<IUser>('User', userSchema);
 export default User;

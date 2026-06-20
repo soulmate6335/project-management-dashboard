@@ -1,4 +1,4 @@
-// src/app.ts
+// src/app.ts [BACKEND]
 //
 // Express application factory.
 // Exports the configured app — does NOT call app.listen().
@@ -17,12 +17,12 @@ import { ApiError } from './utils/ApiError';
 import { errorMiddleware } from './middleware/error.middleware';
 
 // ---------------------------------------------------------------------------
-// Route imports (add as you build each module)
+// Route imports
 // ---------------------------------------------------------------------------
- import authRoutes    from './modules/auth/auth.routes';
- //import userRoutes    from './modules/users/user.routes';
- import projectRoutes from './modules/projects/project.routes';
-// import taskRoutes    from './modules/tasks/task.routes';
+import authRoutes    from './modules/auth/auth.routes';
+//import userRoutes    from './modules/users/user.routes';
+import projectRoutes from './modules/projects/project.routes';
+import taskRoutes    from './modules/tasks/task.routes';   // ✅ uncommented
 // import analyticsRoutes from './modules/analytics/analytics.routes';
 
 // ---------------------------------------------------------------------------
@@ -31,25 +31,20 @@ import { errorMiddleware } from './middleware/error.middleware';
 export function createApp(): Application {
   const app = express();
 
-  // ── Trust proxy (required when behind Nginx / load balancer) ─────────────
   if (env.IS_PRODUCTION) {
     app.set('trust proxy', 1);
   }
 
-  // ── Security headers ──────────────────────────────────────────────────────
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     })
   );
 
-  // ── CORS ──────────────────────────────────────────────────────────────────
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, curl)
         if (!origin) return callback(null, true);
-
         const allowed = env.CLIENT_URL.split(',').map((u) => u.trim());
         if (allowed.includes(origin)) {
           callback(null, true);
@@ -63,13 +58,12 @@ export function createApp(): Application {
     })
   );
 
-  // ── Global rate limiter ───────────────────────────────────────────────────
   app.use(
     '/api',
     rateLimit({
       windowMs: env.RATE_LIMIT_WINDOW_MS,
       max: env.RATE_LIMIT_MAX,
-      standardHeaders: true,  // Return rate limit info in `RateLimit-*` headers
+      standardHeaders: true,
       legacyHeaders: false,
       message: {
         success: false,
@@ -80,14 +74,10 @@ export function createApp(): Application {
     })
   );
 
-  // ── Body parsers ──────────────────────────────────────────────────────────
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-  // ── NoSQL injection sanitiser ─────────────────────────────────────────────
   app.use(mongoSanitize());
 
-  // ── HTTP request logging ──────────────────────────────────────────────────
   if (!env.IS_TEST) {
     app.use(
       morgan(env.IS_PRODUCTION ? 'combined' : 'dev', {
@@ -98,17 +88,12 @@ export function createApp(): Application {
     );
   }
 
-  // ── Attach Socket.io to request (injected by server.ts) ──────────────────
-  // Downstream controllers can access req.io to emit events
-  // app.use((req, _res, next) => { req.io = io; next(); });
-  // (wired in server.ts after Socket.io is instantiated)
-
   // ── Health check ──────────────────────────────────────────────────────────
   app.get('/', (_req, res) => {
-  res.status(200).json({
-    status: 'ProjectHub API running',
+    res.status(200).json({
+      status: 'ProjectHub API running',
+    });
   });
-});
 
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({
@@ -120,10 +105,14 @@ export function createApp(): Application {
   });
 
   // ── API routes ────────────────────────────────────────────────────────────
-   app.use('/api/v1/auth',      authRoutes);
-  // app.use('/api/v1/users',     userRoutes);
-   app.use('/api/v1/projects',  projectRoutes);
-  // app.use('/api/v1/tasks',     taskRoutes);
+  app.use('/api/v1/auth',     authRoutes);
+  // app.use('/api/v1/users', userRoutes);
+  app.use('/api/v1/projects', projectRoutes);
+
+  // ✅ Tasks nested under projects — mergeParams in task.routes.ts
+  // gives handlers access to :projectId from this parent mount path
+  app.use('/api/v1/projects/:projectId/tasks', taskRoutes);
+
   // app.use('/api/v1/analytics', analyticsRoutes);
 
   // ── 404 — unknown route ───────────────────────────────────────────────────
